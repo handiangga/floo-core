@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* RESET TOTAL */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ROOT FULL SCREEN */
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+/* HAPUS STYLE DEFAULT VITE */
+#root {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* BODY */
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background: linear-gradient(to right, #f8fafc, #eef2ff);
+  color: #111827;
+}
+
+/* OPTIONAL SMOOTH UI */
+button {
+  cursor: pointer;
+}
