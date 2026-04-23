@@ -68,16 +68,10 @@ exports.updateEmployee = async (req, res, next) => {
     const { error: bodyError } = updateEmployeeSchema.validate(req.body);
     if (bodyError) throw { status: 400, message: bodyError.message };
 
+    // 🔥 langsung pakai body (tanpa getFile)
     const data = {
       ...req.body,
     };
-
-    // 🔥 hanya set kalau ada file baru
-    const photo = getFile(req, "photo");
-    const ktp = getFile(req, "ktp_photo");
-
-    if (photo) data.photo = photo;
-    if (ktp) data.ktp_photo = ktp;
 
     const result = await service.updateEmployee(req.params.id, data);
 

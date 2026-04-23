@@ -68,6 +68,18 @@ export default function EditEmployee() {
     fetchDetail();
   }, [id]);
 
+  // 🔥 FIX MEMORY LEAK
+  useEffect(() => {
+    return () => {
+      if (previewPhoto?.startsWith("blob:")) {
+        URL.revokeObjectURL(previewPhoto);
+      }
+      if (previewKtp?.startsWith("blob:")) {
+        URL.revokeObjectURL(previewKtp);
+      }
+    };
+  }, [previewPhoto, previewKtp]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -87,22 +99,22 @@ export default function EditEmployee() {
     try {
       setLoading(true);
 
-      let photoUrl = previewPhoto;
-      let ktpUrl = previewKtp;
+      const payload = {
+        ...form,
+      };
 
+      // 🔥 hanya upload kalau ada file baru
       if (photo) {
-        photoUrl = await uploadToSupabase(photo);
+        const photoUrl = await uploadToSupabase(photo);
+        payload.photo = photoUrl;
       }
 
       if (ktp) {
-        ktpUrl = await uploadToSupabase(ktp);
+        const ktpUrl = await uploadToSupabase(ktp);
+        payload.ktp_photo = ktpUrl;
       }
 
-      await api.put(`/employees/${id}`, {
-        ...form,
-        photo: photoUrl,
-        ktp_photo: ktpUrl,
-      });
+      await api.put(`/employees/${id}`, payload);
 
       Swal.fire("Berhasil", "Data berhasil diupdate", "success");
       navigate("/employees");
@@ -137,6 +149,9 @@ export default function EditEmployee() {
               label="Foto Profil"
               preview={previewPhoto}
               onChange={(file) => {
+                if (previewPhoto?.startsWith("blob:")) {
+                  URL.revokeObjectURL(previewPhoto);
+                }
                 setPhoto(file);
                 setPreviewPhoto(URL.createObjectURL(file));
               }}
@@ -147,6 +162,9 @@ export default function EditEmployee() {
               preview={previewKtp}
               large
               onChange={(file) => {
+                if (previewKtp?.startsWith("blob:")) {
+                  URL.revokeObjectURL(previewKtp);
+                }
                 setKtp(file);
                 setPreviewKtp(URL.createObjectURL(file));
               }}
@@ -270,6 +288,7 @@ function UploadCard({ label, preview, onChange, large }) {
         {preview ? (
           <img
             src={preview}
+            loading="lazy"
             className={`rounded-xl object-cover ${
               large ? "w-40 h-40" : "w-24 h-24"
             }`}

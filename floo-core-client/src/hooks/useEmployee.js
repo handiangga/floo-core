@@ -1,17 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from "../api/api";
 import Swal from "sweetalert2";
 
-// 🔥 debounce helper
-const useDebounce = (value, delay = 500) => {
+// debounce
+const useDebounce = (value, delay = 400) => {
   const [debounced, setDebounced] = useState(value);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebounced(value);
-    }, delay);
-
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
   }, [value, delay]);
 
   return debounced;
@@ -25,11 +22,12 @@ export default function useEmployee(page, limit, search, filter) {
     hasNext: false,
     hasPrev: false,
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  const debouncedSearch = useDebounce(search, 400);
+  const debouncedSearch = useDebounce(search);
 
-  const fetchData = async () => {
+  // 🔥 useCallback biar stabil (INI KUNCI)
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -42,11 +40,7 @@ export default function useEmployee(page, limit, search, filter) {
         },
       });
 
-      // 🔥 FIX UTAMA (NESTED DATA)
-      const employees = Array.isArray(res?.data?.data?.data)
-        ? res.data.data.data
-        : [];
-
+      const employees = res?.data?.data?.data || [];
       const metaData = res?.data?.data?.meta || {};
 
       setData(employees);
@@ -59,24 +53,16 @@ export default function useEmployee(page, limit, search, filter) {
       });
     } catch (err) {
       console.error("FETCH ERROR:", err);
-
       Swal.fire("Error", "Gagal ambil data", "error");
-
-      setData([]);
-      setMeta({
-        page: 1,
-        totalPages: 1,
-        hasNext: false,
-        hasPrev: false,
-      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, debouncedSearch, filter]);
 
+  // 🔥 clean effect (no loop)
   useEffect(() => {
     fetchData();
-  }, [page, limit, debouncedSearch, filter]);
+  }, [fetchData]);
 
   return {
     data,

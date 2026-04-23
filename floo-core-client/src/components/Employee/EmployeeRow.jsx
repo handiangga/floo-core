@@ -10,7 +10,6 @@ export default function EmployeeRow({ item, onDelete, navigate, index }) {
     return "bg-gray-50 text-gray-600 border border-gray-200";
   };
 
-  // 🔥 FIX: pakai URL langsung
   const imageSrc = item.photo || "/default-avatar.png";
 
   return (
@@ -26,9 +25,8 @@ export default function EmployeeRow({ item, onDelete, navigate, index }) {
       <td className="p-4">
         <img
           src={imageSrc}
-          onError={(e) => {
-            e.target.src = "/default-avatar.png";
-          }}
+          loading="lazy"
+          draggable={false}
           className="w-12 h-12 rounded-xl object-cover shadow-sm bg-gray-100"
         />
       </td>
@@ -67,7 +65,6 @@ export default function EmployeeRow({ item, onDelete, navigate, index }) {
       {/* ACTION */}
       <td className="p-4">
         <div className="flex justify-center gap-2 items-center">
-          {/* VIEW */}
           <button
             onClick={() => navigate(`/employees/${item.id}`)}
             className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition shadow-sm hover:scale-105"
@@ -75,7 +72,6 @@ export default function EmployeeRow({ item, onDelete, navigate, index }) {
             <Eye size={16} />
           </button>
 
-          {/* EDIT */}
           <button
             onClick={() => navigate(`/employees/edit/${item.id}`)}
             className="p-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 rounded-lg transition shadow-sm hover:scale-105"
@@ -83,7 +79,6 @@ export default function EmployeeRow({ item, onDelete, navigate, index }) {
             <Pencil size={16} />
           </button>
 
-          {/* DELETE */}
           <button
             onClick={() => onDelete(item.id)}
             className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition shadow-sm hover:scale-105"
