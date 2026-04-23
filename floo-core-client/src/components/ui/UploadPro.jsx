@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { UploadCloud } from "lucide-react";
-import { uploadToSupabase } from "../utils/uploadSupabase";
+import { uploadToSupabase } from "../../utils/uploadSupabase";
 
 export default function UploadPro({
   label,
