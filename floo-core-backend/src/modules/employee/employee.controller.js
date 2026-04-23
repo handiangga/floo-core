@@ -21,9 +21,7 @@ exports.createEmployee = async (req, res, next) => {
     if (error) throw { status: 400, message: error.message };
 
     const data = await service.createEmployee({
-      ...req.body,
-      photo: getFile(req, "photo"),
-      ktp_photo: getFile(req, "ktp_photo"),
+      ...req.body, // ✅ langsung pakai dari FE
     });
 
     response.success(res, data, "Employee created");
