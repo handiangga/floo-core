@@ -4,8 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import api from "../../api/api";
 import { formatNumber } from "../../utils/format";
-import { UploadCloud } from "lucide-react";
-import { uploadToSupabase } from "../../utils/uploadSupabase";
+import UploadPro from "../../components/ui/UploadPro";
 
 export default function CreateEmployee() {
   const navigate = useNavigate();
@@ -22,8 +21,9 @@ export default function CreateEmployee() {
 
   const [salaryDisplay, setSalaryDisplay] = useState("");
 
-  const [photo, setPhoto] = useState(null);
-  const [ktp, setKtp] = useState(null);
+  // 🔥 sekarang langsung simpan URL
+  const [photo, setPhoto] = useState("");
+  const [ktp, setKtp] = useState("");
 
   const [previewPhoto, setPreviewPhoto] = useState(null);
   const [previewKtp, setPreviewKtp] = useState(null);
@@ -48,28 +48,10 @@ export default function CreateEmployee() {
     try {
       setLoading(true);
 
-      Swal.fire({
-        title: "Uploading...",
-        text: "Sedang upload gambar",
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
-      });
-
-      let photoUrl = null;
-      let ktpUrl = null;
-
-      if (photo) {
-        photoUrl = await uploadToSupabase(photo);
-      }
-
-      if (ktp) {
-        ktpUrl = await uploadToSupabase(ktp);
-      }
-
       await api.post("/employees", {
         ...form,
-        photo: photoUrl,
-        ktp_photo: ktpUrl,
+        photo: photo,
+        ktp_photo: ktp,
       });
 
       Swal.fire("Berhasil", "Employee ditambahkan", "success");
@@ -89,16 +71,29 @@ export default function CreateEmployee() {
     <Layout>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Tambah Employee</h1>
-        <p className="text-gray-400 text-sm">Lengkapi data karyawan</p>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-8 max-w-3xl">
+      <div className="bg-white rounded-3xl shadow-lg border p-8 max-w-3xl">
         <form onSubmit={handleSubmit} className="space-y-6">
+          <UploadPro
+            label="Foto Profil"
+            preview={previewPhoto}
+            setPreview={setPreviewPhoto}
+            setValue={setPhoto}
+          />
+
+          <UploadPro
+            label="Foto KTP"
+            preview={previewKtp}
+            setPreview={setPreviewKtp}
+            setValue={setKtp}
+            large
+          />
+
           <Input
             label="Nama"
             value={form.name}
             onChange={(v) => handleChange("name", v)}
-            placeholder="Masukkan nama"
           />
 
           <Select
@@ -112,16 +107,12 @@ export default function CreateEmployee() {
           />
 
           <div>
-            <label className="text-sm font-medium text-gray-600">Gaji</label>
-            <div className="relative mt-1">
-              <span className="absolute left-4 top-2.5 text-gray-400">Rp</span>
-              <input
-                value={salaryDisplay}
-                onChange={(e) => handleSalary(e.target.value)}
-                className="w-full border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 pl-10 pr-4 py-2.5 rounded-xl outline-none transition"
-                placeholder="0"
-              />
-            </div>
+            <label className="text-sm text-gray-600">Gaji</label>
+            <input
+              value={salaryDisplay}
+              onChange={(e) => handleSalary(e.target.value)}
+              className="w-full border px-4 py-2 rounded-xl mt-1"
+            />
           </div>
 
           <Select
@@ -138,50 +129,20 @@ export default function CreateEmployee() {
             label="Phone"
             value={form.phone}
             onChange={(v) => handleChange("phone", v)}
-            placeholder="08xxxx"
           />
 
-          <Textarea
+          <Input
             label="Alamat"
             value={form.address}
             onChange={(v) => handleChange("address", v)}
           />
 
-          <UploadCard
-            label="Foto Profil"
-            preview={previewPhoto}
-            onChange={(file) => {
-              setPhoto(file);
-              setPreviewPhoto(URL.createObjectURL(file));
-            }}
-          />
-
-          <UploadCard
-            label="Foto KTP"
-            preview={previewKtp}
-            large
-            onChange={(file) => {
-              setKtp(file);
-              setPreviewKtp(URL.createObjectURL(file));
-            }}
-          />
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => navigate("/employees")}
-              className="px-5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition"
-            >
-              Batal
-            </button>
-
-            <button
-              disabled={loading}
-              className="px-6 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm"
-            >
-              {loading ? "Menyimpan..." : "Simpan"}
-            </button>
-          </div>
+          <button
+            disabled={loading}
+            className="px-6 py-2 bg-blue-600 text-white rounded-xl"
+          >
+            {loading ? "Menyimpan..." : "Simpan"}
+          </button>
         </form>
       </div>
     </Layout>
@@ -190,26 +151,12 @@ export default function CreateEmployee() {
 
 /* COMPONENT */
 
-function Input({ label, value, onChange, placeholder }) {
+function Input({ label, value, onChange }) {
   return (
     <div>
-      <label className="text-sm font-medium text-gray-600">{label}</label>
+      <label className="text-sm text-gray-600">{label}</label>
       <input
-        className="w-full border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 px-4 py-2.5 rounded-xl mt-1 outline-none transition"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-      />
-    </div>
-  );
-}
-
-function Textarea({ label, value, onChange }) {
-  return (
-    <div>
-      <label className="text-sm font-medium text-gray-600">{label}</label>
-      <textarea
-        className="w-full border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 px-4 py-2.5 rounded-xl mt-1 outline-none transition"
+        className="w-full border px-4 py-2 rounded-xl mt-1"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -220,9 +167,9 @@ function Textarea({ label, value, onChange }) {
 function Select({ label, value, onChange, options }) {
   return (
     <div>
-      <label className="text-sm font-medium text-gray-600">{label}</label>
+      <label className="text-sm text-gray-600">{label}</label>
       <select
-        className="w-full border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 px-4 py-2.5 rounded-xl mt-1 outline-none transition"
+        className="w-full border px-4 py-2 rounded-xl mt-1"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -233,38 +180,6 @@ function Select({ label, value, onChange, options }) {
           </option>
         ))}
       </select>
-    </div>
-  );
-}
-
-function UploadCard({ label, preview, onChange, large }) {
-  return (
-    <div>
-      <label className="text-sm font-medium text-gray-600">{label}</label>
-
-      <label className="mt-2 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-6 cursor-pointer hover:border-blue-400 transition">
-        {preview ? (
-          <img
-            src={preview}
-            className={`rounded-xl object-cover ${large ? "w-40" : "w-24"}`}
-          />
-        ) : (
-          <>
-            <UploadCloud className="text-gray-400 mb-2" />
-            <p className="text-sm text-gray-400">Klik atau drag file</p>
-          </>
-        )}
-
-        <input
-          type="file"
-          hidden
-          onChange={(e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            onChange(file);
-          }}
-        />
-      </label>
     </div>
   );
 }

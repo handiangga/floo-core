@@ -4,8 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2";
 import api from "../../api/api";
 import { formatNumber } from "../../utils/format";
-import { UploadCloud } from "lucide-react";
-import { uploadToSupabase } from "../../utils/uploadSupabase";
+import UploadPro from "../../components/ui/UploadPro";
 
 export default function EditEmployee() {
   const { id } = useParams();
@@ -24,8 +23,9 @@ export default function EditEmployee() {
 
   const [salaryDisplay, setSalaryDisplay] = useState("");
 
-  const [photo, setPhoto] = useState(null);
-  const [ktp, setKtp] = useState(null);
+  // 🔥 sekarang simpan URL langsung
+  const [photo, setPhoto] = useState("");
+  const [ktp, setKtp] = useState("");
 
   const [previewPhoto, setPreviewPhoto] = useState(null);
   const [previewKtp, setPreviewKtp] = useState(null);
@@ -58,6 +58,10 @@ export default function EditEmployee() {
 
       setPreviewPhoto(data.photo || null);
       setPreviewKtp(data.ktp_photo || null);
+
+      // 🔥 penting: set URL lama
+      setPhoto(data.photo || "");
+      setKtp(data.ktp_photo || "");
     } catch (err) {
       Swal.fire("Error", "Gagal ambil data", "error");
       navigate("/employees");
@@ -67,18 +71,6 @@ export default function EditEmployee() {
   useEffect(() => {
     fetchDetail();
   }, [id]);
-
-  // 🔥 FIX MEMORY LEAK
-  useEffect(() => {
-    return () => {
-      if (previewPhoto?.startsWith("blob:")) {
-        URL.revokeObjectURL(previewPhoto);
-      }
-      if (previewKtp?.startsWith("blob:")) {
-        URL.revokeObjectURL(previewKtp);
-      }
-    };
-  }, [previewPhoto, previewKtp]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -99,22 +91,11 @@ export default function EditEmployee() {
     try {
       setLoading(true);
 
-      const payload = {
+      await api.put(`/employees/${id}`, {
         ...form,
-      };
-
-      // 🔥 hanya upload kalau ada file baru
-      if (photo) {
-        const photoUrl = await uploadToSupabase(photo);
-        payload.photo = photoUrl;
-      }
-
-      if (ktp) {
-        const ktpUrl = await uploadToSupabase(ktp);
-        payload.ktp_photo = ktpUrl;
-      }
-
-      await api.put(`/employees/${id}`, payload);
+        photo: photo,
+        ktp_photo: ktp,
+      });
 
       Swal.fire("Berhasil", "Data berhasil diupdate", "success");
       navigate("/employees");
@@ -142,32 +123,22 @@ export default function EditEmployee() {
         <h1 className="text-2xl font-bold text-gray-800">Edit Employee</h1>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-8 max-w-3xl">
+      <div className="bg-white rounded-3xl shadow-lg border p-8 max-w-3xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-2 gap-6">
-            <UploadCard
+            <UploadPro
               label="Foto Profil"
               preview={previewPhoto}
-              onChange={(file) => {
-                if (previewPhoto?.startsWith("blob:")) {
-                  URL.revokeObjectURL(previewPhoto);
-                }
-                setPhoto(file);
-                setPreviewPhoto(URL.createObjectURL(file));
-              }}
+              setPreview={setPreviewPhoto}
+              setValue={setPhoto}
             />
 
-            <UploadCard
+            <UploadPro
               label="Foto KTP"
               preview={previewKtp}
+              setPreview={setPreviewKtp}
+              setValue={setKtp}
               large
-              onChange={(file) => {
-                if (previewKtp?.startsWith("blob:")) {
-                  URL.revokeObjectURL(previewKtp);
-                }
-                setKtp(file);
-                setPreviewKtp(URL.createObjectURL(file));
-              }}
             />
           </div>
 
@@ -189,15 +160,11 @@ export default function EditEmployee() {
 
           <div>
             <label className="text-sm text-gray-600">Gaji</label>
-            <div className="relative mt-1">
-              <span className="absolute left-3 top-2.5 text-gray-400">Rp</span>
-
-              <input
-                value={salaryDisplay}
-                onChange={(e) => handleSalary(e.target.value)}
-                className="w-full border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 pl-10 pr-4 py-2.5 rounded-xl"
-              />
-            </div>
+            <input
+              value={salaryDisplay}
+              onChange={(e) => handleSalary(e.target.value)}
+              className="w-full border px-4 py-2 rounded-xl mt-1"
+            />
           </div>
 
           <Select
@@ -226,14 +193,14 @@ export default function EditEmployee() {
             <button
               type="button"
               onClick={() => navigate("/employees")}
-              className="px-5 py-2 bg-gray-100 rounded-xl hover:bg-gray-200"
+              className="px-5 py-2 bg-gray-100 rounded-xl"
             >
               Batal
             </button>
 
             <button
               disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-sm"
+              className="px-6 py-2 bg-blue-600 text-white rounded-xl"
             >
               {loading ? "Menyimpan..." : "Update"}
             </button>
@@ -251,7 +218,7 @@ function Input({ label, value, onChange }) {
     <div>
       <label className="text-sm text-gray-600">{label}</label>
       <input
-        className="w-full border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 px-4 py-2.5 rounded-xl mt-1"
+        className="w-full border px-4 py-2 rounded-xl mt-1"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -264,7 +231,7 @@ function Select({ label, value, onChange, options }) {
     <div>
       <label className="text-sm text-gray-600">{label}</label>
       <select
-        className="w-full border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 px-4 py-2.5 rounded-xl mt-1"
+        className="w-full border px-4 py-2 rounded-xl mt-1"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -275,41 +242,6 @@ function Select({ label, value, onChange, options }) {
           </option>
         ))}
       </select>
-    </div>
-  );
-}
-
-function UploadCard({ label, preview, onChange, large }) {
-  return (
-    <div>
-      <label className="text-sm text-gray-600">{label}</label>
-
-      <label className="mt-2 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-6 cursor-pointer hover:border-blue-400 transition">
-        {preview ? (
-          <img
-            src={preview}
-            loading="lazy"
-            className={`rounded-xl object-cover ${
-              large ? "w-40 h-40" : "w-24 h-24"
-            }`}
-          />
-        ) : (
-          <>
-            <UploadCloud className="text-gray-400 mb-2" />
-            <p className="text-sm text-gray-400">Upload gambar</p>
-          </>
-        )}
-
-        <input
-          type="file"
-          hidden
-          onChange={(e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            onChange(file);
-          }}
-        />
-      </label>
     </div>
   );
 }
