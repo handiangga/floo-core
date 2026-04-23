@@ -22,6 +22,8 @@ const safeRedisDel = async (key) => {
 // 🔥 EXTRACT FILE PATH (FINAL FIX)
 // ============================
 const extractFilePath = (url) => {
+  console.log("🧠 URL:", url);
+  console.log("🧠 EXTRACT:", extractFilePath(url));
   if (!url || typeof url !== "string") return null;
 
   try {
