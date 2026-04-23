@@ -5,7 +5,9 @@ const { supabase } = require("../../config/supabase");
 
 const { Employee, Loan } = db;
 
+// ============================
 // 🔥 SAFE REDIS DELETE
+// ============================
 const safeRedisDel = async (key) => {
   try {
     if (redis && typeof redis.del === "function") {
@@ -16,27 +18,46 @@ const safeRedisDel = async (key) => {
   }
 };
 
-// 🔥 EXTRACT FILE NAME DARI URL SUPABASE
-const extractFileName = (url) => {
-  if (!url) return null;
-  return url.split("/").pop();
+// ============================
+// 🔥 EXTRACT FILE PATH (FIXED)
+// ============================
+const extractFilePath = (url) => {
+  if (!url || typeof url !== "string") return null;
+
+  try {
+    // ambil path setelah /object/public/
+    const parts = url.split("/object/public/");
+    if (!parts[1]) return null;
+
+    // hasil: employees/employees/xxx.jpg
+    return parts[1];
+  } catch {
+    return null;
+  }
 };
 
-// 🔥 DELETE FILE DI SUPABASE
+// ============================
+// 🔥 DELETE FILE SUPABASE (FINAL)
+// ============================
 const deleteFile = async (url) => {
   try {
-    const filename = extractFileName(url);
-    if (!filename) return;
+    const path = extractFilePath(url);
+    if (!path) {
+      console.log("⚠️ Skip delete, invalid path:", url);
+      return;
+    }
 
-    const { error } = await supabase.storage
-      .from("employees")
-      .remove([filename]);
+    console.log("🗑 DELETE PATH:", path);
+
+    const { error } = await supabase.storage.from("employees").remove([path]);
 
     if (error) {
-      console.log("⚠️ Supabase delete error:", error.message);
+      console.log("❌ Supabase delete error:", error.message);
+    } else {
+      console.log("✅ File deleted:", path);
     }
   } catch (err) {
-    console.log("⚠️ Delete file error:", err.message);
+    console.log("❌ Delete file error:", err.message);
   }
 };
 
@@ -50,7 +71,7 @@ const createEmployee = async (data) => {
 };
 
 // ============================
-// GET ALL (PRO MAX)
+// GET ALL
 // ============================
 const getAllEmployees = async ({
   page = 1,
@@ -113,7 +134,7 @@ const getEmployeeById = async (id) => {
 };
 
 // ============================
-// UPDATE (🔥 REPLACE IMAGE)
+// UPDATE (🔥 SAFE REPLACE)
 // ============================
 const updateEmployee = async (id, data) => {
   const employee = await Employee.findByPk(id);
@@ -122,16 +143,16 @@ const updateEmployee = async (id, data) => {
     throw { status: 404, message: "Employee not found" };
   }
 
-  // 🔥 kalau upload foto baru → hapus lama
-  if (data.photo && employee.photo) {
+  // 🔥 hanya hapus kalau benar-benar ganti file
+  if (data.photo && data.photo !== employee.photo) {
     await deleteFile(employee.photo);
   }
 
-  if (data.ktp_photo && employee.ktp_photo) {
+  if (data.ktp_photo && data.ktp_photo !== employee.ktp_photo) {
     await deleteFile(employee.ktp_photo);
   }
 
-  // 🔥 kalau tidak upload → jangan overwrite null
+  // 🔥 jangan overwrite kalau kosong
   if (!data.photo) delete data.photo;
   if (!data.ktp_photo) delete data.ktp_photo;
 
@@ -143,7 +164,7 @@ const updateEmployee = async (id, data) => {
 };
 
 // ============================
-// DELETE (🔥 HAPUS FILE JUGA)
+// DELETE (🔥 CLEAN STORAGE)
 // ============================
 const deleteEmployee = async (id) => {
   const employee = await Employee.findByPk(id);

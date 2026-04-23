@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { UploadCloud } from "lucide-react";
 import { uploadToSupabase } from "../../utils/uploadSupabase";
 
@@ -11,6 +11,8 @@ export default function UploadPro({
 }) {
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  const inputRef = useRef(); // 🔥 penting
 
   const handleUpload = async (file) => {
     if (!file) return;
@@ -26,6 +28,7 @@ export default function UploadPro({
       <label className="text-sm text-gray-600">{label}</label>
 
       <div
+        onClick={() => inputRef.current.click()} // 🔥 FIX UTAMA
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -52,9 +55,7 @@ export default function UploadPro({
         ) : (
           <>
             <UploadCloud className="text-gray-400 mb-2" />
-            <p className="text-sm text-gray-400">
-              Drag & drop atau klik upload
-            </p>
+            <p className="text-sm text-gray-400">Klik atau drag file</p>
           </>
         )}
 
@@ -71,7 +72,9 @@ export default function UploadPro({
           </div>
         )}
 
+        {/* 🔥 hidden input tapi bisa dipanggil */}
         <input
+          ref={inputRef}
           type="file"
           hidden
           onChange={(e) => handleUpload(e.target.files[0])}
