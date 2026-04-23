@@ -1,5 +1,6 @@
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import { formatRupiah } from "../../utils/format";
+import { useMemo } from "react";
 
 export default function EmployeeRow({ item, onDelete, navigate, index }) {
   const getBadge = (pos) => {
@@ -10,7 +11,18 @@ export default function EmployeeRow({ item, onDelete, navigate, index }) {
     return "bg-gray-50 text-gray-600 border border-gray-200";
   };
 
-  const imageSrc = item.photo || "/default-avatar.png";
+  // 🔥 FIX: stabilkan src (hindari null / undefined / invalid)
+  const imageSrc = useMemo(() => {
+    if (!item.photo || item.photo === "null") {
+      return "/default-avatar.png";
+    }
+
+    if (typeof item.photo === "string" && item.photo.startsWith("http")) {
+      return item.photo;
+    }
+
+    return "/default-avatar.png";
+  }, [item.photo]);
 
   return (
     <tr
@@ -24,6 +36,7 @@ export default function EmployeeRow({ item, onDelete, navigate, index }) {
       {/* FOTO */}
       <td className="p-4">
         <img
+          key={imageSrc} // 🔥 penting biar React gak reload loop
           src={imageSrc}
           loading="lazy"
           draggable={false}
