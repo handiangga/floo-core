@@ -2,7 +2,7 @@ import { supabase } from "../lib/supabase";
 import imageCompression from "browser-image-compression";
 
 export const uploadToSupabase = async (file, onProgress) => {
-  // 🔥 compress dulu
+  // 🔥 compress
   const compressed = await imageCompression(file, {
     maxSizeMB: 0.5,
     maxWidthOrHeight: 1280,
@@ -11,16 +11,17 @@ export const uploadToSupabase = async (file, onProgress) => {
 
   const fileName = `${Date.now()}-${compressed.name}`;
 
-  // 🔥 fake progress (UX smooth)
+  // 🔥 fake progress
   let progress = 0;
   const interval = setInterval(() => {
     progress += 10;
     if (progress < 90 && onProgress) onProgress(progress);
   }, 150);
 
+  // ✅ FIX: JANGAN pakai employees/
   const { error } = await supabase.storage
     .from("employees")
-    .upload(`employees/${fileName}`, compressed);
+    .upload(fileName, compressed); // 🔥 INI FIX
 
   clearInterval(interval);
 
@@ -28,9 +29,7 @@ export const uploadToSupabase = async (file, onProgress) => {
 
   if (onProgress) onProgress(100);
 
-  const { data } = supabase.storage
-    .from("employees")
-    .getPublicUrl(`employees/${fileName}`);
+  const { data } = supabase.storage.from("employees").getPublicUrl(fileName); // 🔥 INI FIX JUGA
 
   return data.publicUrl;
 };

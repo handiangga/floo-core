@@ -19,31 +19,38 @@ const safeRedisDel = async (key) => {
 };
 
 // ============================
-// 🔥 EXTRACT FILE PATH (FIXED)
+// 🔥 EXTRACT FILE PATH (FINAL FIX)
 // ============================
 const extractFilePath = (url) => {
   if (!url || typeof url !== "string") return null;
 
   try {
-    // ambil path setelah /object/public/
-    const parts = url.split("/object/public/");
+    // ambil setelah /object/public/employees/
+    const parts = url.split("/object/public/employees/");
     if (!parts[1]) return null;
 
-    // hasil: employees/employees/xxx.jpg
-    return parts[1];
+    let path = parts[1]; // employees/xxx.jpg
+
+    // 🔥 FIX: kalau masih double folder → buang 1 layer
+    if (path.startsWith("employees/")) {
+      path = path.replace("employees/", "");
+    }
+
+    return path; // final: xxx.jpg
   } catch {
     return null;
   }
 };
 
 // ============================
-// 🔥 DELETE FILE SUPABASE (FINAL)
+// 🔥 DELETE FILE SUPABASE
 // ============================
 const deleteFile = async (url) => {
   try {
     const path = extractFilePath(url);
+
     if (!path) {
-      console.log("⚠️ Skip delete, invalid path:", url);
+      console.log("⚠️ Skip delete, invalid URL:", url);
       return;
     }
 
@@ -134,7 +141,7 @@ const getEmployeeById = async (id) => {
 };
 
 // ============================
-// UPDATE (🔥 SAFE REPLACE)
+// UPDATE (🔥 SAFE REPLACE IMAGE)
 // ============================
 const updateEmployee = async (id, data) => {
   const employee = await Employee.findByPk(id);
@@ -143,7 +150,7 @@ const updateEmployee = async (id, data) => {
     throw { status: 404, message: "Employee not found" };
   }
 
-  // 🔥 hanya hapus kalau benar-benar ganti file
+  // 🔥 hanya hapus kalau benar-benar beda
   if (data.photo && data.photo !== employee.photo) {
     await deleteFile(employee.photo);
   }
@@ -152,7 +159,7 @@ const updateEmployee = async (id, data) => {
     await deleteFile(employee.ktp_photo);
   }
 
-  // 🔥 jangan overwrite kalau kosong
+  // 🔥 jangan overwrite null
   if (!data.photo) delete data.photo;
   if (!data.ktp_photo) delete data.ktp_photo;
 
@@ -184,7 +191,7 @@ const deleteEmployee = async (id) => {
     };
   }
 
-  // 🔥 hapus file dari supabase
+  // 🔥 hapus file dari storage
   await deleteFile(employee.photo);
   await deleteFile(employee.ktp_photo);
 
