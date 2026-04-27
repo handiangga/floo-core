@@ -4,7 +4,9 @@ const { Op, fn, col, literal } = require("sequelize");
 const { Employee, Loan, Transaction, Cashflow } = db;
 
 const getDashboard = async () => {
+  // =========================================================
   // 🔥 KPI
+  // =========================================================
   const [
     totalEmployees,
     totalLoanRaw,
@@ -25,11 +27,12 @@ const getDashboard = async () => {
   const totalRemaining = Number(totalRemainingRaw || 0);
   const totalPayment = Number(totalPaymentRaw || 0);
 
-  // 🔥 COLLECTION RATE
   const collectionRate =
     totalLoan > 0 ? ((totalLoan - totalRemaining) / totalLoan) * 100 : 0;
 
+  // =========================================================
   // 🔥 RISKY LOAN
+  // =========================================================
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -41,7 +44,7 @@ const getDashboard = async () => {
   });
 
   // =========================================================
-  // 🔥 CASHFLOW CHART (FIX: pakai Cashflow)
+  // 🔥 CASHFLOW CHART
   // =========================================================
   const cashflowRaw = await Cashflow.findAll({
     attributes: [
@@ -91,42 +94,37 @@ const getDashboard = async () => {
   const cashBalance = totalIn - totalOut;
 
   // =========================================================
-  // 🔥 ACTIVITIES (FIX TOTAL)
+  // 🔥 ACTIVITIES (FIX PRO – NO N+1)
   // =========================================================
   const activitiesRaw = await Cashflow.findAll({
     limit: 10,
     order: [["createdAt", "DESC"]],
+    include: [
+      {
+        model: Loan,
+        as: "Loan",
+        attributes: ["id"],
+        include: [
+          {
+            model: Employee,
+            as: "Employee",
+            attributes: ["name"],
+          },
+        ],
+      },
+    ],
   });
 
-  const activities = await Promise.all(
-    activitiesRaw.map(async (item) => {
-      let employeeName = "-";
+  const activities = activitiesRaw.map((item) => ({
+    id: item.id,
+    amount: Number(item.amount) || 0,
+    type: item.type,
+    source: item.source,
+    date: item.createdAt,
 
-      // 🔥 kalau dari loan → ambil employee
-      if (item.source === "loan" || item.source === "payment") {
-        const loan = await Loan.findByPk(item.reference_id, {
-          include: [
-            {
-              model: Employee,
-              as: "Employee",
-              attributes: ["name"],
-            },
-          ],
-        });
-
-        employeeName = loan?.Employee?.name || "-";
-      }
-
-      return {
-        id: item.id,
-        amount: Number(item.amount),
-        type: item.type, // 🔥 in / out
-        source: item.source, // 🔥 loan / payment
-        date: item.createdAt,
-        employee: employeeName,
-      };
-    }),
-  );
+    // 🔥 FIX NAMA DISINI
+    employee: item.Loan?.Employee?.name || item.note || "-",
+  }));
 
   // =========================================================
   // 🔥 TOP DEBTOR
@@ -161,7 +159,6 @@ const getDashboard = async () => {
       collectionRate: Number(collectionRate.toFixed(2)),
       riskyLoans,
 
-      // 🔥 CASH
       cashBalance,
       cashIn: totalIn,
       cashOut: totalOut,
