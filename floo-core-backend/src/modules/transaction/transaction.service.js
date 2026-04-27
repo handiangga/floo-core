@@ -8,17 +8,18 @@ const clearCache = async () => {
   if (redis) {
     try {
       await redis.del("transactions");
+      await redis.del("dashboard"); // 🔥 tambahan
     } catch (err) {
       console.log("Redis clear error:", err.message);
     }
   }
 };
 
-// 🔥 RECALC LOAN (SOURCE OF TRUTH)
+// 🔥 RECALC LOAN
 const recalcLoanTransactions = async (loan_id, t) => {
   const loan = await Loan.findByPk(loan_id, {
     transaction: t,
-    lock: t.LOCK.UPDATE, // ✅ prevent race
+    lock: t.LOCK.UPDATE,
   });
 
   if (!loan) throw { status: 404, message: "Loan not found" };
@@ -30,7 +31,7 @@ const recalcLoanTransactions = async (loan_id, t) => {
     order: [
       ["payment_date", "ASC"],
       ["createdAt", "ASC"],
-    ], // ✅ FIX
+    ],
     transaction: t,
   });
 
@@ -51,12 +52,12 @@ const recalcLoanTransactions = async (loan_id, t) => {
   await loan.save({ transaction: t });
 };
 
-// 🔥 CREATE (PAYMENT + CASHFLOW IN)
+// 🔥 CREATE TRANSACTION (FIX FINAL)
 const createTransaction = async ({ loan_id, amount, file }) => {
   return await db.sequelize.transaction(async (t) => {
     const loan = await Loan.findByPk(loan_id, {
       transaction: t,
-      lock: t.LOCK.UPDATE, // ✅ anti double bayar
+      lock: t.LOCK.UPDATE,
     });
 
     if (!loan) throw { status: 404, message: "Loan not found" };
@@ -75,34 +76,32 @@ const createTransaction = async ({ loan_id, amount, file }) => {
       throw { status: 400, message: "Amount exceeds remaining loan" };
     }
 
-    // 🔥 CREATE TRANSACTION
+    // ✅ CREATE TRANSACTION
     const trx = await Transaction.create(
       {
         loan_id,
         amount,
         proof: file || null,
-        remaining_after: loan.remaining_amount - amount, // ✅ optional pre-calc
+        remaining_after: 0,
         payment_date: new Date(),
         type: loan.type,
       },
       { transaction: t },
     );
 
-    // 🔥 CASHFLOW MASUK (FIXED)
+    // 🔥 FIX PALING PENTING DISINI
     await Cashflow.create(
       {
         type: "in",
         amount,
         source: "payment",
-        reference_id: trx.id, // ✅ FIX
+        reference_id: loan_id, // ✅ FIX FINAL
         note: "Pembayaran pinjaman",
       },
       { transaction: t },
     );
 
-    // 🔥 RECALC FINAL
     await recalcLoanTransactions(loan_id, t);
-
     await clearCache();
 
     return trx;
@@ -193,7 +192,6 @@ const updateTransaction = async (id, { amount, file }) => {
     await trx.save({ transaction: t });
 
     await recalcLoanTransactions(trx.loan_id, t);
-
     await clearCache();
 
     return trx;
@@ -212,7 +210,6 @@ const deleteTransaction = async (id) => {
     await trx.destroy({ transaction: t });
 
     await recalcLoanTransactions(loan_id, t);
-
     await clearCache();
 
     return true;

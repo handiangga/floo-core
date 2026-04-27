@@ -4,7 +4,10 @@ const { fn, col } = require("sequelize");
 
 const getCashBalance = async () => {
   const result = await Cashflow.findAll({
-    attributes: ["type", [fn("SUM", col("amount")), "total"]],
+    attributes: [
+      "type",
+      [fn("COALESCE", fn("SUM", col("amount")), 0), "total"], // 🔥 anti null
+    ],
     group: ["type"],
     raw: true,
   });
@@ -12,12 +15,16 @@ const getCashBalance = async () => {
   let totalIn = 0;
   let totalOut = 0;
 
-  result.forEach((item) => {
+  for (const item of result) {
     const total = Number(item.total) || 0;
 
-    if (item.type === "in") totalIn = total;
-    else totalOut = total;
-  });
+    if (item.type === "in") {
+      totalIn += total; // 🔥 pakai += (future-proof)
+    } else if (item.type === "out") {
+      totalOut += total;
+    }
+    // 🔥 type lain diabaikan (lebih aman)
+  }
 
   return {
     totalIn,

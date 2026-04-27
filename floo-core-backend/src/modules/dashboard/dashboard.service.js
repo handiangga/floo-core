@@ -5,7 +5,7 @@ const { Employee, Loan, Transaction, Cashflow } = db;
 
 const getDashboard = async () => {
   // =========================================================
-  // 🔥 KPI
+  // 🔥 KPI (ANTI NULL)
   // =========================================================
   const [
     totalEmployees,
@@ -23,9 +23,9 @@ const getDashboard = async () => {
     Loan.count({ where: { remaining_amount: 0 } }),
   ]);
 
-  const totalLoan = Number(totalLoanRaw || 0);
-  const totalRemaining = Number(totalRemainingRaw || 0);
-  const totalPayment = Number(totalPaymentRaw || 0);
+  const totalLoan = Number(totalLoanRaw) || 0;
+  const totalRemaining = Number(totalRemainingRaw) || 0;
+  const totalPayment = Number(totalPaymentRaw) || 0;
 
   const collectionRate =
     totalLoan > 0 ? ((totalLoan - totalRemaining) / totalLoan) * 100 : 0;
@@ -44,7 +44,7 @@ const getDashboard = async () => {
   });
 
   // =========================================================
-  // 🔥 CASHFLOW CHART
+  // 🔥 CASHFLOW CHART (SAFE)
   // =========================================================
   const cashflowRaw = await Cashflow.findAll({
     attributes: [
@@ -59,26 +59,32 @@ const getDashboard = async () => {
 
   const grouped = {};
 
-  cashflowRaw.forEach((c) => {
+  for (const c of cashflowRaw) {
     const date = c.date;
     const type = c.type;
-    const total = Number(c.total);
+    const total = Number(c.total) || 0;
 
     if (!grouped[date]) {
       grouped[date] = { date, masuk: 0, keluar: 0 };
     }
 
-    if (type === "in") grouped[date].masuk += total;
-    else grouped[date].keluar += total;
-  });
+    if (type === "in") {
+      grouped[date].masuk += total;
+    } else if (type === "out") {
+      grouped[date].keluar += total;
+    }
+  }
 
   const cashflow = Object.values(grouped);
 
   // =========================================================
-  // 🔥 CASH BALANCE
+  // 🔥 CASH BALANCE (SAFE)
   // =========================================================
   const cashRaw = await Cashflow.findAll({
-    attributes: ["type", [fn("SUM", col("amount")), "total"]],
+    attributes: [
+      "type",
+      [fn("COALESCE", fn("SUM", col("amount")), 0), "total"],
+    ],
     group: ["type"],
     raw: true,
   });
@@ -86,10 +92,12 @@ const getDashboard = async () => {
   let totalIn = 0;
   let totalOut = 0;
 
-  cashRaw.forEach((c) => {
-    if (c.type === "in") totalIn = Number(c.total);
-    else totalOut = Number(c.total);
-  });
+  for (const c of cashRaw) {
+    const total = Number(c.total) || 0;
+
+    if (c.type === "in") totalIn += total;
+    else if (c.type === "out") totalOut += total;
+  }
 
   const cashBalance = totalIn - totalOut;
 
@@ -104,11 +112,13 @@ const getDashboard = async () => {
         model: Loan,
         as: "Loan",
         attributes: ["id"],
+        required: false, // 🔥 biar gak crash kalau relasi putus
         include: [
           {
             model: Employee,
             as: "Employee",
             attributes: ["name"],
+            required: false,
           },
         ],
       },
@@ -116,7 +126,7 @@ const getDashboard = async () => {
   });
 
   const activities = activitiesRaw.map((item) => {
-    const employeeName = item.Loan?.Employee?.name || null;
+    const employeeName = item.Loan?.Employee?.name;
 
     return {
       id: item.id,
@@ -125,9 +135,10 @@ const getDashboard = async () => {
       source: item.source,
       date: item.createdAt,
 
-      // 🔥 FIX UTAMA DISINI
+      // 🔥 FIX FINAL (TIDAK MENYESATKAN)
       employee:
-        employeeName || (item.source === "loan" ? "Pencairan" : "Pembayaran"),
+        employeeName ||
+        (item.source === "loan" ? "System (Pencairan)" : "System (Pembayaran)"),
     };
   });
 
