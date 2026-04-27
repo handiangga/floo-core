@@ -4,16 +4,16 @@ import { useParams, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import api from "../../api/api";
 import { formatRupiah } from "../../utils/format";
+import { uploadToSupabase } from "../../utils/uploadSupabase";
 
 export default function DetailLoan() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const BASE_URL = "https://floo-core-backend.onrender.com";
-
   const [loan, setLoan] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [payLoading, setPayLoading] = useState(false);
 
   const [payAmount, setPayAmount] = useState("");
   const [proof, setProof] = useState(null);
@@ -33,11 +33,7 @@ export default function DetailLoan() {
       setLoan(loanRes.data.data);
       setTransactions(trxRes.data.data.data || []);
     } catch (err) {
-      Swal.fire(
-        "Error",
-        err.response?.data?.message || "Gagal ambil data",
-        "error",
-      );
+      Swal.fire("Error", "Gagal ambil data", "error");
     } finally {
       setLoading(false);
     }
@@ -48,10 +44,7 @@ export default function DetailLoan() {
   }, [id]);
 
   const progress = loan
-    ? Math.min(
-        100,
-        ((loan.total_amount - loan.remaining_amount) / loan.total_amount) * 100,
-      )
+    ? ((loan.total_amount - loan.remaining_amount) / loan.total_amount) * 100
     : 0;
 
   const isLunas = loan?.remaining_amount === 0;
@@ -72,12 +65,20 @@ export default function DetailLoan() {
 
       if (!confirm.isConfirmed) return;
 
-      const formData = new FormData();
-      formData.append("loan_id", id);
-      formData.append("amount", amount);
-      formData.append("proof", proof);
+      setPayLoading(true);
 
-      await api.post("/transactions", formData);
+      // 🔥 upload ke supabase
+      const proofUrl = await uploadToSupabase(proof, {
+        bucket: "transactions",
+        prefix: `loan-${id}`,
+      });
+
+      // 🔥 kirim ke backend
+      await api.post("/transactions", {
+        loan_id: id,
+        amount,
+        proof: proofUrl,
+      });
 
       Swal.fire("Berhasil", "Pembayaran sukses", "success");
 
@@ -87,7 +88,9 @@ export default function DetailLoan() {
 
       fetchData();
     } catch (err) {
-      Swal.fire("Error", err.response?.data?.message || "Gagal bayar", "error");
+      Swal.fire("Error", err.message || "Gagal bayar", "error");
+    } finally {
+      setPayLoading(false);
     }
   };
 
@@ -120,39 +123,36 @@ export default function DetailLoan() {
         </div>
       </div>
 
-      {/* MAIN CARD */}
+      {/* CARD */}
       <div className="bg-white rounded-3xl shadow-lg p-6 mb-6 border space-y-5">
-        {/* TOP */}
         <div className="grid grid-cols-3 gap-4">
           <Stat label="Total" value={loan.total_amount} />
           <Stat label="Sisa" value={loan.remaining_amount} red />
           <Stat label="Cicilan" value={loan.installment} />
         </div>
 
-        {/* PROGRESS */}
         <div>
           <div className="w-full bg-gray-200 h-3 rounded-full">
             <div
-              className="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full transition-all"
+              className="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            {progress.toFixed(0)}% selesai
-          </p>
+          <p className="text-xs mt-1">{progress.toFixed(0)}% selesai</p>
         </div>
 
-        {/* BREAKDOWN */}
-        <div className="bg-gray-50 p-4 rounded-xl text-sm flex justify-between">
+        <div className="bg-gray-50 p-4 rounded-xl flex justify-between">
           <div>
-            <p className="text-gray-500">Pokok</p>
+            <p className="text-gray-500 text-sm">Pokok</p>
             <p className="font-semibold">
               {formatRupiah(loan.principal_amount)}
             </p>
           </div>
 
           <div>
-            <p className="text-gray-500">Bunga ({loan.interest_rate}%)</p>
+            <p className="text-gray-500 text-sm">
+              Bunga ({loan.interest_rate}%)
+            </p>
             <p className="font-semibold">
               {formatRupiah(loan.interest_amount)}
             </p>
@@ -196,9 +196,10 @@ export default function DetailLoan() {
           </div>
 
           {/* UPLOAD */}
-          <div className="border-2 border-dashed p-4 rounded-xl text-center">
+          <label className="border-2 border-dashed p-6 rounded-xl text-center cursor-pointer hover:bg-gray-50 block">
             <input
               type="file"
+              className="hidden"
               onChange={(e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -208,20 +209,21 @@ export default function DetailLoan() {
               }}
             />
 
-            {preview && (
-              <img
-                src={preview}
-                className="w-32 mx-auto mt-3 rounded-xl shadow cursor-pointer"
-                onClick={() => Swal.fire({ imageUrl: preview })}
-              />
+            {!preview ? (
+              <p className="text-gray-400">
+                Klik untuk upload bukti pembayaran
+              </p>
+            ) : (
+              <img src={preview} className="w-32 mx-auto rounded-xl shadow" />
             )}
-          </div>
+          </label>
 
           <button
+            disabled={payLoading}
             onClick={handlePay}
-            className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold"
+            className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold disabled:opacity-50"
           >
-            Bayar Sekarang
+            {payLoading ? "Memproses..." : "Bayar Sekarang"}
           </button>
         </div>
       )}
@@ -261,13 +263,9 @@ export default function DetailLoan() {
                   <td className="p-4">
                     {trx.proof && (
                       <img
-                        src={`${BASE_URL}/uploads/${trx.proof}`}
+                        src={trx.proof}
                         className="w-10 rounded cursor-pointer hover:scale-110 transition"
-                        onClick={() =>
-                          Swal.fire({
-                            imageUrl: `${BASE_URL}/uploads/${trx.proof}`,
-                          })
-                        }
+                        onClick={() => Swal.fire({ imageUrl: trx.proof })}
                       />
                     )}
                   </td>

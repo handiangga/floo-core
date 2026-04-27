@@ -7,21 +7,16 @@ const {
   transactionIdParam,
 } = require("./transaction.validation");
 
-// 🔥 CREATE (PAYMENT)
+// 🔥 CREATE
 exports.createTransaction = async (req, res, next) => {
   try {
     const { error } = createTransactionSchema.validate(req.body);
     if (error) throw { status: 400, message: error.message };
 
-    const loan_id = Number(req.body.loan_id);
-    const amount = Number(req.body.amount);
-
-    const file = req.files?.proof?.[0]?.filename || null;
-
     const data = await service.createTransaction({
-      loan_id,
-      amount,
-      file,
+      loan_id: Number(req.body.loan_id),
+      amount: Number(req.body.amount),
+      file: req.body.proof || null, // ✅ dari FE (Supabase URL)
     });
 
     response.success(res, data, "Payment recorded");
@@ -45,7 +40,7 @@ exports.getAllTransactions = async (req, res, next) => {
   }
 };
 
-// 🔥 GET DETAIL
+// 🔥 DETAIL
 exports.getTransactionById = async (req, res, next) => {
   try {
     const { error } = transactionIdParam.validate(req.params);
@@ -67,12 +62,10 @@ exports.updateTransaction = async (req, res, next) => {
     const { error: bodyError } = updateTransactionSchema.validate(req.body);
     if (bodyError) throw { status: 400, message: bodyError.message };
 
-    const file = req.files?.proof?.[0]?.filename || null;
-
     const data = await service.updateTransaction(Number(req.params.id), {
       amount:
         req.body.amount !== undefined ? Number(req.body.amount) : undefined,
-      file,
+      file: req.body.proof || null, // ✅ URL
     });
 
     response.success(res, data, "Transaction updated");

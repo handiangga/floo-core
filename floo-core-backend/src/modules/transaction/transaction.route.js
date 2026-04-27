@@ -3,11 +3,10 @@ const controller = require("./transaction.controller");
 const { verifyToken } = require("../../middlewares/auth.middleware");
 const rbac = require("../../middlewares/rbac.middleware");
 const cache = require("../../middlewares/cache.middleware");
-const { upload, processImage } = require("../../middlewares/upload");
 
 const router = express.Router();
 
-// 🔥 GET ALL (CACHE)
+// 🔥 GET ALL
 router.get(
   "/",
   verifyToken,
@@ -15,28 +14,19 @@ router.get(
   controller.getAllTransactions,
 );
 
-// 🔥 GET DETAIL
+// 🔥 DETAIL
 router.get("/:id", verifyToken, controller.getTransactionById);
 
-// 🔥 CREATE (PAYMENT)
+// 🔥 CREATE
 router.post(
   "/",
   verifyToken,
   rbac(["admin", "operator"]),
-  upload.fields([{ name: "proof", maxCount: 1 }]),
-  processImage,
   controller.createTransaction,
 );
 
 // 🔥 UPDATE
-router.put(
-  "/:id",
-  verifyToken,
-  rbac(["admin"]),
-  upload.fields([{ name: "proof", maxCount: 1 }]),
-  processImage,
-  controller.updateTransaction,
-);
+router.put("/:id", verifyToken, rbac(["admin"]), controller.updateTransaction);
 
 // 🔥 DELETE
 router.delete(
