@@ -22,7 +22,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // =========================================================
   // 🔥 FETCH
+  // =========================================================
   const fetchDashboard = async () => {
     try {
       setLoading(true);
@@ -46,19 +48,33 @@ export default function Dashboard() {
   const safe = (v) => Number(v) || 0;
 
   // =========================================================
-  // 🔥 ACTIVITY (SAFE + FORMAT)
+  // 🔥 ACTIVITY (ULTRA SAFE)
   // =========================================================
   const activities = useMemo(() => {
     if (!data?.activities) return [];
 
-    return data.activities.map((item) => ({
-      id: item.id,
-      type: item.type === "in" ? "in" : "out",
-      amount: Number(item.amount) || 0,
-      source: item.source || "payment",
-      employee: item.employee || "-",
-      date: item.date ? dayjs(item.date).format("DD MMM YYYY") : "-",
-    }));
+    return data.activities
+      .map((item) => {
+        const date = item.date ? dayjs(item.date).toDate() : new Date();
+
+        return {
+          id: item.id,
+          type: item.type === "in" ? "in" : "out",
+          amount: Number(item.amount) || 0,
+          source: item.source || "payment",
+
+          // 🔥 fallback pintar
+          employee:
+            item.employee && item.employee !== "-"
+              ? item.employee
+              : item.source === "loan"
+                ? "Pencairan"
+                : "Pembayaran",
+
+          date,
+        };
+      })
+      .sort((a, b) => dayjs(b.date).diff(dayjs(a.date))); // 🔥 selalu newest
   }, [data]);
 
   // =========================================================
@@ -123,7 +139,7 @@ export default function Dashboard() {
   ];
 
   // =========================================================
-  // 🔥 LOADING STATE
+  // 🔥 LOADING
   // =========================================================
   if (loading) {
     return (
@@ -138,7 +154,7 @@ export default function Dashboard() {
   }
 
   // =========================================================
-  // 🔥 ERROR STATE
+  // 🔥 ERROR
   // =========================================================
   if (error) {
     return (
@@ -169,7 +185,6 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* 🔥 REFRESH BUTTON */}
         <button
           onClick={fetchDashboard}
           className="text-sm px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
@@ -185,7 +200,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* KPI BAWAH */}
+      {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6 mt-6">
         {statCards.map((item, i) => (
           <StatCard key={i} {...item} />

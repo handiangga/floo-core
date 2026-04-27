@@ -94,7 +94,7 @@ const getDashboard = async () => {
   const cashBalance = totalIn - totalOut;
 
   // =========================================================
-  // 🔥 ACTIVITIES (FIX PRO – NO N+1)
+  // 🔥 ACTIVITIES (FINAL FIX 🔥)
   // =========================================================
   const activitiesRaw = await Cashflow.findAll({
     limit: 10,
@@ -115,16 +115,21 @@ const getDashboard = async () => {
     ],
   });
 
-  const activities = activitiesRaw.map((item) => ({
-    id: item.id,
-    amount: Number(item.amount) || 0,
-    type: item.type,
-    source: item.source,
-    date: item.createdAt,
+  const activities = activitiesRaw.map((item) => {
+    const employeeName = item.Loan?.Employee?.name || null;
 
-    // 🔥 FIX NAMA DISINI
-    employee: item.Loan?.Employee?.name || item.note || "-",
-  }));
+    return {
+      id: item.id,
+      amount: Number(item.amount) || 0,
+      type: item.type,
+      source: item.source,
+      date: item.createdAt,
+
+      // 🔥 FIX UTAMA DISINI
+      employee:
+        employeeName || (item.source === "loan" ? "Pencairan" : "Pembayaran"),
+    };
+  });
 
   // =========================================================
   // 🔥 TOP DEBTOR

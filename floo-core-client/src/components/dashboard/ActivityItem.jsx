@@ -5,8 +5,20 @@ import { formatRupiah } from "../../utils/format";
 export default function ActivityItem({ trx }) {
   const isIn = trx.type === "in";
 
+  // 🔥 fallback employee
+  const name =
+    trx.employee && trx.employee !== "-"
+      ? trx.employee
+      : trx.source === "loan"
+        ? "Pencairan"
+        : "Pembayaran";
+
+  // 🔥 ambil inisial
+  const initial = name.charAt(0).toUpperCase();
+
   return (
-    <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl">
+    <div className="flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition p-3 rounded-xl">
+      {/* ICON */}
       <div
         className={`p-2 rounded-full ${isIn ? "bg-green-100" : "bg-red-100"}`}
       >
@@ -17,13 +29,20 @@ export default function ActivityItem({ trx }) {
         )}
       </div>
 
+      {/* AVATAR */}
+      <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold text-sm">
+        {initial}
+      </div>
+
+      {/* INFO */}
       <div className="flex-1">
-        <p className="font-medium">{trx.employee || "-"}</p>
+        <p className="font-medium capitalize">{name}</p>
         <p className="text-xs text-gray-400">
-          {isIn ? "Pembayaran" : "Pencairan"}
+          {trx.source === "loan" ? "Pencairan pinjaman" : "Pembayaran pinjaman"}
         </p>
       </div>
 
+      {/* AMOUNT */}
       <div className="text-right">
         <p
           className={
