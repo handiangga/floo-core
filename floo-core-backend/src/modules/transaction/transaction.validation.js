@@ -1,23 +1,25 @@
 const Joi = require("joi");
 
-// 🔥 CREATE (PAYMENT)
+// 🔥 CREATE
 const createTransactionSchema = Joi.object({
-  loan_id: Joi.number().integer().required(),
+  loan_id: Joi.number().required(),
+  amount: Joi.number().min(1).required(),
 
-  amount: Joi.number().integer().min(1).required(),
-
-  // optional tapi aman kalau nanti dipakai
-  payment_date: Joi.date().optional(),
+  // ✅ TAMBAH INI
+  proof: Joi.string().uri().optional().allow(null, ""),
 });
 
 // 🔥 UPDATE
 const updateTransactionSchema = Joi.object({
-  amount: Joi.number().integer().min(1).optional(),
+  amount: Joi.number().min(1).optional(),
+
+  // ✅ TAMBAH JUGA
+  proof: Joi.string().uri().optional().allow(null, ""),
 }).min(1);
 
-// 🔥 PARAM
+// 🔥 PARAM ID
 const transactionIdParam = Joi.object({
-  id: Joi.number().integer().required(),
+  id: Joi.number().required(),
 });
 
 module.exports = {
