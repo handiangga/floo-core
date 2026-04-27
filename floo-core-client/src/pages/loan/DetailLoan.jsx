@@ -69,7 +69,7 @@ export default function DetailLoan() {
 
       // 🔥 upload ke supabase
       const proofUrl = await uploadToSupabase(proof, {
-        bucket: "transactions",
+        bucket: "transaction",
         prefix: `loan-${id}`,
       });
 
