@@ -12,12 +12,18 @@ exports.createLoan = async (req, res, next) => {
     const { error } = createLoanSchema.validate(req.body);
     if (error) throw { status: 400, message: error.message };
 
-    const { employee_id, amount, interest_rate = 5 } = req.body;
+    const {
+      employee_id,
+      amount,
+      interest_rate = 5,
+      tenor, // ✅ TAMBAH INI
+    } = req.body;
 
     const data = await service.createLoan({
       employee_id,
       amount,
       interest_rate,
+      tenor, // ✅ KIRIM KE SERVICE
     });
 
     response.success(res, data, "Loan created");
@@ -80,15 +86,21 @@ exports.deleteLoan = async (req, res, next) => {
   }
 };
 
-// 🔥 SIMULATE (FE ONLY PREVIEW)
+// 🔥 SIMULATE (FE PREVIEW SUPPORT TENOR)
 exports.simulateLoan = async (req, res, next) => {
   try {
-    const { employee_id, amount, interest_rate = 5 } = req.body;
+    const {
+      employee_id,
+      amount,
+      interest_rate = 5,
+      tenor, // ✅ TAMBAH INI
+    } = req.body;
 
     const result = await service.simulateLoan({
       employee_id,
       amount,
       interest_rate,
+      tenor, // ✅ KIRIM JUGA
     });
 
     response.success(res, result);

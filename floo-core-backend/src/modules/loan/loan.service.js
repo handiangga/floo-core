@@ -15,52 +15,60 @@ const clearCache = async () => {
   }
 };
 
-// 🔥 CORE HITUNG LOAN
-const calculateLoan = (employee, principal, interest_rate = 5) => {
+// 🔥 CORE HITUNG LOAN (NOW SUPPORT TENOR FROM FE)
+const calculateLoan = (employee, principal, interest_rate = 5, tenorInput) => {
   const salary = Number(employee.salary || 0);
   const salaryType = employee.salary_type;
 
-  const maxInstallment = salary * 0.3;
+  const maxInstallment = salary * 0.5; // ✅ lebih realistis dari 30%
 
   let tenor;
   let installment;
   let type;
 
+  // 🔥 WEEKLY
   if (salaryType === "weekly") {
     const maxLoan = salary * 2;
-    tenor = 8;
     type = "weekly";
 
     if (principal > maxLoan) {
-      throw { status: 400, message: "Max pinjaman mingguan = 2x gaji" };
+      throw { status: 400, message: "Max pinjaman = 2x gaji" };
     }
+
+    tenor = tenorInput || 4; // ✅ pakai dari FE
 
     const interest = Math.round(principal * (interest_rate / 100));
     const total = principal + interest;
 
-    installment = total / tenor;
+    installment = Math.ceil(total / tenor);
 
     if (installment > maxInstallment) {
-      throw { status: 400, message: "Cicilan > 30% gaji" };
+      throw { status: 400, message: "Cicilan > 50% gaji" };
     }
 
     return { tenor, installment, type, interest, total };
   }
 
+  // 🔥 MONTHLY
   if (salaryType === "monthly") {
-    tenor = principal <= 1500000 ? 3 : 5;
     type = "monthly";
 
-    const maxLoan = maxInstallment * tenor;
+    tenor = tenorInput || 3; // ✅ pakai dari FE
+
+    const maxLoan = salary * 2;
 
     if (principal > maxLoan) {
-      throw { status: 400, message: "Pinjaman melebihi batas aman" };
+      throw { status: 400, message: "Max pinjaman = 2x gaji" };
     }
 
     const interest = Math.round(principal * (interest_rate / 100));
     const total = principal + interest;
 
-    installment = total / tenor;
+    installment = Math.ceil(total / tenor);
+
+    if (installment > maxInstallment) {
+      throw { status: 400, message: "Cicilan > 50% gaji" };
+    }
 
     return { tenor, installment, type, interest, total };
   }
@@ -69,7 +77,12 @@ const calculateLoan = (employee, principal, interest_rate = 5) => {
 };
 
 // 🔥 CREATE LOAN + CASHFLOW
-const createLoan = async ({ employee_id, amount, interest_rate = 5 }) => {
+const createLoan = async ({
+  employee_id,
+  amount,
+  interest_rate = 5,
+  tenor,
+}) => {
   const employee = await Employee.findByPk(employee_id);
 
   if (!employee) {
@@ -97,8 +110,8 @@ const createLoan = async ({ employee_id, amount, interest_rate = 5 }) => {
     };
   }
 
-  // 🔥 HITUNG
-  const result = calculateLoan(employee, principal, interest_rate);
+  // 🔥 HITUNG (NOW WITH TENOR)
+  const result = calculateLoan(employee, principal, interest_rate, tenor);
 
   const now = new Date();
 
@@ -121,7 +134,7 @@ const createLoan = async ({ employee_id, amount, interest_rate = 5 }) => {
     remaining_amount: result.total,
 
     tenor: result.tenor,
-    installment: Math.round(result.installment),
+    installment: result.installment,
     type: result.type,
     status: "ongoing",
 
@@ -129,10 +142,10 @@ const createLoan = async ({ employee_id, amount, interest_rate = 5 }) => {
     due_date: dueDate,
   });
 
-  // 🔥 CASHFLOW OUT (PENTING BANGET)
+  // 🔥 CASHFLOW OUT (FIXED BUG)
   await Cashflow.create({
     type: "out",
-    amount: total_amount, // ✅ FIX
+    amount: result.total, // ✅ FIX (tadi error disini)
     source: "loan",
     reference_id: loan.id,
     note: "Pencairan pinjaman",
@@ -189,7 +202,7 @@ const getLoanById = async (id) => {
   return loan;
 };
 
-// 🔥 UPDATE (LOCK)
+// 🔥 UPDATE
 const updateLoan = async (id, data) => {
   const loan = await Loan.findByPk(id);
 
@@ -209,7 +222,6 @@ const updateLoan = async (id, data) => {
   }
 
   await loan.update(data);
-
   await clearCache();
 
   return loan;
@@ -235,23 +247,25 @@ const deleteLoan = async (id) => {
   }
 
   await loan.destroy();
-
   await clearCache();
 
   return true;
 };
 
-// 🔥 SIMULATE (FE PREVIEW)
-const simulateLoan = async ({ employee_id, amount, interest_rate = 5 }) => {
+// 🔥 SIMULATE (SUPPORT TENOR)
+const simulateLoan = async ({
+  employee_id,
+  amount,
+  interest_rate = 5,
+  tenor,
+}) => {
   const employee = await Employee.findByPk(employee_id);
 
   if (!employee) {
     throw { status: 404, message: "Employee not found" };
   }
 
-  const result = calculateLoan(employee, amount, interest_rate);
-
-  return result;
+  return calculateLoan(employee, amount, interest_rate, tenor);
 };
 
 module.exports = {

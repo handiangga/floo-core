@@ -5,6 +5,8 @@ const createLoanSchema = Joi.object({
   employee_id: Joi.number().required(),
   amount: Joi.number().min(1).required(),
   interest_rate: Joi.number().min(0).max(100).optional(),
+
+  tenor: Joi.number().min(1).required(), // ✅ TAMBAH INI
 });
 
 // 🔥 UPDATE (LOCK CORE FIELD)
