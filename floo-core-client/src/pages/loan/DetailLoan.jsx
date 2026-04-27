@@ -21,7 +21,6 @@ export default function DetailLoan() {
 
   const parseNumber = (val) => Number(val.toString().replace(/\D/g, "")) || 0;
 
-  // 🔥 FETCH
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -48,34 +47,24 @@ export default function DetailLoan() {
     fetchData();
   }, [id]);
 
-  // 🔥 PROGRESS SAFE
   const progress = loan
     ? Math.min(
         100,
-        Math.max(
-          0,
-          ((loan.total_amount - loan.remaining_amount) / loan.total_amount) *
-            100,
-        ),
+        ((loan.total_amount - loan.remaining_amount) / loan.total_amount) * 100,
       )
     : 0;
 
   const isLunas = loan?.remaining_amount === 0;
 
-  // 🔥 HANDLE BAYAR
   const handlePay = async () => {
     try {
       const amount = parseNumber(payAmount);
 
       if (!amount) return Swal.fire("Error", "Isi nominal", "warning");
-
       if (!proof) return Swal.fire("Error", "Upload bukti", "warning");
 
-      if (amount > loan.remaining_amount)
-        return Swal.fire("Error", "Melebihi sisa", "warning");
-
       const confirm = await Swal.fire({
-        title: "Konfirmasi Pembayaran",
+        title: "Konfirmasi",
         text: `Bayar ${formatRupiah(amount)} ?`,
         icon: "question",
         showCancelButton: true,
@@ -92,7 +81,6 @@ export default function DetailLoan() {
 
       Swal.fire("Berhasil", "Pembayaran sukses", "success");
 
-      // 🔥 RESET
       setPayAmount("");
       setProof(null);
       setPreview(null);
@@ -106,7 +94,7 @@ export default function DetailLoan() {
   if (loading) {
     return (
       <Layout>
-        <div className="animate-pulse h-10 bg-gray-200 rounded" />
+        <div className="h-40 bg-gray-200 animate-pulse rounded-2xl" />
       </Layout>
     );
   }
@@ -116,7 +104,7 @@ export default function DetailLoan() {
   return (
     <Layout>
       {/* HEADER */}
-      <div className="mb-6 flex items-center gap-3">
+      <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => navigate("/loans")}
           className="px-3 py-1 bg-gray-200 rounded-lg hover:bg-gray-300"
@@ -125,54 +113,57 @@ export default function DetailLoan() {
         </button>
 
         <div>
-          <h1 className="text-2xl font-semibold">Loan Detail</h1>
+          <h1 className="text-2xl font-bold">Loan Detail</h1>
           <p className="text-gray-500 text-sm">
             {loan.Employee?.name} ({loan.Employee?.position})
           </p>
         </div>
       </div>
 
-      {/* CARD */}
-      <div className="bg-white p-6 rounded-2xl shadow mb-6 space-y-4">
+      {/* MAIN CARD */}
+      <div className="bg-white rounded-3xl shadow-lg p-6 mb-6 border space-y-5">
+        {/* TOP */}
         <div className="grid grid-cols-3 gap-4">
-          <Info label="Total" value={formatRupiah(loan.total_amount)} />
-          <Info
-            label="Sisa"
-            value={formatRupiah(loan.remaining_amount)}
-            className="text-red-500"
-          />
-          <Info label="Cicilan" value={formatRupiah(loan.installment)} />
+          <Stat label="Total" value={loan.total_amount} />
+          <Stat label="Sisa" value={loan.remaining_amount} red />
+          <Stat label="Cicilan" value={loan.installment} />
         </div>
 
         {/* PROGRESS */}
         <div>
           <div className="w-full bg-gray-200 h-3 rounded-full">
             <div
-              className="bg-green-500 h-3 rounded-full transition-all"
+              className="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full transition-all"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-xs mt-1 text-gray-500">
+          <p className="text-xs text-gray-500 mt-1">
             {progress.toFixed(0)}% selesai
           </p>
         </div>
 
         {/* BREAKDOWN */}
-        <div className="bg-gray-50 p-3 rounded-xl text-sm">
-          <p>
-            Pokok: <b>{formatRupiah(loan.principal_amount)}</b>
-          </p>
-          <p>
-            Bunga ({loan.interest_rate}%):{" "}
-            <b>{formatRupiah(loan.interest_amount)}</b>
-          </p>
+        <div className="bg-gray-50 p-4 rounded-xl text-sm flex justify-between">
+          <div>
+            <p className="text-gray-500">Pokok</p>
+            <p className="font-semibold">
+              {formatRupiah(loan.principal_amount)}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-gray-500">Bunga ({loan.interest_rate}%)</p>
+            <p className="font-semibold">
+              {formatRupiah(loan.interest_amount)}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* BAYAR */}
+      {/* PAYMENT */}
       {!isLunas && (
-        <div className="bg-white p-6 rounded-2xl shadow mb-6 space-y-3">
-          <h2 className="font-semibold">Bayar Cicilan</h2>
+        <div className="bg-white rounded-3xl shadow-lg p-6 mb-6 border space-y-4">
+          <h2 className="font-semibold text-lg">Bayar Cicilan</h2>
 
           <div className="flex gap-2">
             <input
@@ -181,7 +172,7 @@ export default function DetailLoan() {
                 const raw = parseNumber(e.target.value);
                 setPayAmount(raw ? raw.toLocaleString("id-ID") : "");
               }}
-              className="border px-4 py-2 rounded-xl w-full"
+              className="border px-4 py-3 rounded-xl w-full text-lg"
               placeholder="0"
             />
 
@@ -189,7 +180,7 @@ export default function DetailLoan() {
               onClick={() =>
                 setPayAmount(loan.installment.toLocaleString("id-ID"))
               }
-              className="bg-gray-200 px-3 rounded-lg"
+              className="bg-gray-200 px-4 rounded-xl"
             >
               Cicilan
             </button>
@@ -198,97 +189,105 @@ export default function DetailLoan() {
               onClick={() =>
                 setPayAmount(loan.remaining_amount.toLocaleString("id-ID"))
               }
-              className="bg-green-500 text-white px-3 rounded-lg"
+              className="bg-green-500 text-white px-4 rounded-xl"
             >
               Lunas
             </button>
-
-            <button
-              onClick={handlePay}
-              className="bg-blue-500 text-white px-4 rounded-lg hover:bg-blue-600"
-            >
-              Bayar
-            </button>
           </div>
 
-          <p className="text-xs text-gray-400">
-            Bayar penuh untuk melunasi pinjaman
-          </p>
-
           {/* UPLOAD */}
-          <input
-            type="file"
-            onChange={(e) => {
-              const file = e.target.files[0];
-              if (!file) return;
+          <div className="border-2 border-dashed p-4 rounded-xl text-center">
+            <input
+              type="file"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (!file) return;
 
-              setProof(file);
-              setPreview(URL.createObjectURL(file));
-            }}
-          />
-
-          {preview && (
-            <img
-              src={preview}
-              className="w-32 rounded-lg cursor-pointer hover:scale-105 transition"
-              onClick={() => Swal.fire({ imageUrl: preview })}
+                setProof(file);
+                setPreview(URL.createObjectURL(file));
+              }}
             />
-          )}
+
+            {preview && (
+              <img
+                src={preview}
+                className="w-32 mx-auto mt-3 rounded-xl shadow cursor-pointer"
+                onClick={() => Swal.fire({ imageUrl: preview })}
+              />
+            )}
+          </div>
+
+          <button
+            onClick={handlePay}
+            className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold"
+          >
+            Bayar Sekarang
+          </button>
         </div>
       )}
 
       {/* HISTORY */}
-      <div className="bg-white rounded-2xl shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="p-4">Tanggal</th>
-              <th className="p-4">Amount</th>
-              <th className="p-4">Sisa</th>
-              <th className="p-4">Bukti</th>
-            </tr>
-          </thead>
+      <div className="bg-white rounded-3xl shadow-lg border overflow-hidden">
+        <div className="p-4 font-semibold border-b">Riwayat Pembayaran</div>
 
-          <tbody>
-            {transactions.map((trx) => (
-              <tr key={trx.id} className="border-t">
-                <td className="p-4">
-                  {new Date(trx.createdAt).toLocaleDateString("id-ID")}
-                </td>
-
-                <td className="p-4 text-green-600 font-semibold">
-                  + {formatRupiah(trx.amount)}
-                </td>
-
-                <td className="p-4">{formatRupiah(trx.remaining_after)}</td>
-
-                <td className="p-4">
-                  {trx.proof && (
-                    <img
-                      src={`${BASE_URL}/uploads/${trx.proof}`}
-                      className="w-10 cursor-pointer"
-                      onClick={() =>
-                        Swal.fire({
-                          imageUrl: `${BASE_URL}/uploads/${trx.proof}`,
-                        })
-                      }
-                    />
-                  )}
-                </td>
+        {transactions.length === 0 ? (
+          <div className="p-6 text-center text-gray-400">
+            Belum ada pembayaran
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="p-4 text-left">Tanggal</th>
+                <th className="p-4 text-left">Amount</th>
+                <th className="p-4 text-left">Sisa</th>
+                <th className="p-4 text-left">Bukti</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {transactions.map((trx) => (
+                <tr key={trx.id} className="border-t hover:bg-gray-50">
+                  <td className="p-4">
+                    {new Date(trx.createdAt).toLocaleDateString("id-ID")}
+                  </td>
+
+                  <td className="p-4 text-green-600 font-semibold">
+                    + {formatRupiah(trx.amount)}
+                  </td>
+
+                  <td className="p-4">{formatRupiah(trx.remaining_after)}</td>
+
+                  <td className="p-4">
+                    {trx.proof && (
+                      <img
+                        src={`${BASE_URL}/uploads/${trx.proof}`}
+                        className="w-10 rounded cursor-pointer hover:scale-110 transition"
+                        onClick={() =>
+                          Swal.fire({
+                            imageUrl: `${BASE_URL}/uploads/${trx.proof}`,
+                          })
+                        }
+                      />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </Layout>
   );
 }
 
-function Info({ label, value, className = "" }) {
+function Stat({ label, value, red }) {
   return (
     <div>
       <p className="text-xs text-gray-500">{label}</p>
-      <p className={`font-bold ${className}`}>{value}</p>
+      <p className={`text-lg font-bold ${red ? "text-red-500" : ""}`}>
+        {formatRupiah(value)}
+      </p>
     </div>
   );
 }

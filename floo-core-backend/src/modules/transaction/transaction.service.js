@@ -14,9 +14,12 @@ const clearCache = async () => {
   }
 };
 
-// 🔥 RECALC LOAN
+// 🔥 RECALC LOAN (SOURCE OF TRUTH)
 const recalcLoanTransactions = async (loan_id, t) => {
-  const loan = await Loan.findByPk(loan_id, { transaction: t });
+  const loan = await Loan.findByPk(loan_id, {
+    transaction: t,
+    lock: t.LOCK.UPDATE, // ✅ prevent race
+  });
 
   if (!loan) throw { status: 404, message: "Loan not found" };
 
@@ -24,7 +27,10 @@ const recalcLoanTransactions = async (loan_id, t) => {
 
   const transactions = await Transaction.findAll({
     where: { loan_id },
-    order: [["createdAt", "ASC"]],
+    order: [
+      ["payment_date", "ASC"],
+      ["createdAt", "ASC"],
+    ], // ✅ FIX
     transaction: t,
   });
 
@@ -48,7 +54,10 @@ const recalcLoanTransactions = async (loan_id, t) => {
 // 🔥 CREATE (PAYMENT + CASHFLOW IN)
 const createTransaction = async ({ loan_id, amount, file }) => {
   return await db.sequelize.transaction(async (t) => {
-    const loan = await Loan.findByPk(loan_id, { transaction: t });
+    const loan = await Loan.findByPk(loan_id, {
+      transaction: t,
+      lock: t.LOCK.UPDATE, // ✅ anti double bayar
+    });
 
     if (!loan) throw { status: 404, message: "Loan not found" };
 
@@ -66,32 +75,34 @@ const createTransaction = async ({ loan_id, amount, file }) => {
       throw { status: 400, message: "Amount exceeds remaining loan" };
     }
 
-    // 🔥 CREATE TRANSACTION (FIX)
+    // 🔥 CREATE TRANSACTION
     const trx = await Transaction.create(
       {
         loan_id,
         amount,
         proof: file || null,
-        remaining_after: 0,
+        remaining_after: loan.remaining_amount - amount, // ✅ optional pre-calc
         payment_date: new Date(),
-        type: loan.type, // ✅ FIX (weekly / monthly)
+        type: loan.type,
       },
       { transaction: t },
     );
 
-    // 🔥 CASHFLOW MASUK (INI BARU "in")
+    // 🔥 CASHFLOW MASUK (FIXED)
     await Cashflow.create(
       {
         type: "in",
         amount,
         source: "payment",
-        reference_id: loan_id,
+        reference_id: trx.id, // ✅ FIX
         note: "Pembayaran pinjaman",
       },
       { transaction: t },
     );
 
+    // 🔥 RECALC FINAL
     await recalcLoanTransactions(loan_id, t);
+
     await clearCache();
 
     return trx;
@@ -115,7 +126,10 @@ const getAllTransactions = async ({ page = 1, limit = 10, loan_id }) => {
     ],
     limit: parseInt(limit),
     offset: parseInt(offset),
-    order: [["createdAt", "ASC"]],
+    order: [
+      ["payment_date", "ASC"],
+      ["createdAt", "ASC"],
+    ],
   });
 
   return {
@@ -151,7 +165,10 @@ const updateTransaction = async (id, { amount, file }) => {
 
     if (!trx) throw { status: 404, message: "Transaction not found" };
 
-    const loan = await Loan.findByPk(trx.loan_id, { transaction: t });
+    const loan = await Loan.findByPk(trx.loan_id, {
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
 
     if (!loan) throw { status: 404, message: "Loan not found" };
 
@@ -176,6 +193,7 @@ const updateTransaction = async (id, { amount, file }) => {
     await trx.save({ transaction: t });
 
     await recalcLoanTransactions(trx.loan_id, t);
+
     await clearCache();
 
     return trx;
@@ -194,6 +212,7 @@ const deleteTransaction = async (id) => {
     await trx.destroy({ transaction: t });
 
     await recalcLoanTransactions(loan_id, t);
+
     await clearCache();
 
     return true;

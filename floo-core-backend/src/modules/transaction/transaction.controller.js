@@ -13,10 +13,15 @@ exports.createTransaction = async (req, res, next) => {
     const { error } = createTransactionSchema.validate(req.body);
     if (error) throw { status: 400, message: error.message };
 
+    const loan_id = Number(req.body.loan_id);
+    const amount = Number(req.body.amount);
+
+    const file = req.files?.proof?.[0]?.filename || null;
+
     const data = await service.createTransaction({
-      loan_id: req.body.loan_id,
-      amount: req.body.amount,
-      file: req.files?.proof?.[0]?.filename || null,
+      loan_id,
+      amount,
+      file,
     });
 
     response.success(res, data, "Payment recorded");
@@ -28,7 +33,12 @@ exports.createTransaction = async (req, res, next) => {
 // 🔥 GET ALL
 exports.getAllTransactions = async (req, res, next) => {
   try {
-    const data = await service.getAllTransactions(req.query);
+    const data = await service.getAllTransactions({
+      ...req.query,
+      page: Number(req.query.page) || 1,
+      limit: Number(req.query.limit) || 10,
+    });
+
     response.success(res, data);
   } catch (err) {
     next(err);
@@ -41,7 +51,7 @@ exports.getTransactionById = async (req, res, next) => {
     const { error } = transactionIdParam.validate(req.params);
     if (error) throw { status: 400, message: error.message };
 
-    const data = await service.getTransactionById(req.params.id);
+    const data = await service.getTransactionById(Number(req.params.id));
     response.success(res, data);
   } catch (err) {
     next(err);
@@ -57,9 +67,12 @@ exports.updateTransaction = async (req, res, next) => {
     const { error: bodyError } = updateTransactionSchema.validate(req.body);
     if (bodyError) throw { status: 400, message: bodyError.message };
 
-    const data = await service.updateTransaction(req.params.id, {
-      amount: req.body.amount ?? undefined,
-      file: req.files?.proof?.[0]?.filename || null,
+    const file = req.files?.proof?.[0]?.filename || null;
+
+    const data = await service.updateTransaction(Number(req.params.id), {
+      amount:
+        req.body.amount !== undefined ? Number(req.body.amount) : undefined,
+      file,
     });
 
     response.success(res, data, "Transaction updated");
@@ -74,7 +87,7 @@ exports.deleteTransaction = async (req, res, next) => {
     const { error } = transactionIdParam.validate(req.params);
     if (error) throw { status: 400, message: error.message };
 
-    await service.deleteTransaction(req.params.id);
+    await service.deleteTransaction(Number(req.params.id));
 
     response.success(res, null, "Deleted successfully");
   } catch (err) {
