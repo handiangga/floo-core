@@ -3,10 +3,13 @@ const redis = require("../../config/redis");
 const { Op } = require("sequelize");
 const { supabase } = require("../../config/supabase");
 
+const { clearAllCache } = require("../../utils/cache");
+const { logAudit } = require("../../utils/audit");
+
 const { Employee, Loan } = db;
 
 // ============================
-// 🔥 SAFE REDIS DELETE
+// 🔥 SAFE REDIS DELETE (fallback kalau perlu)
 // ============================
 const safeRedisDel = async (key) => {
   try {
@@ -19,24 +22,24 @@ const safeRedisDel = async (key) => {
 };
 
 // ============================
-// 🔥 EXTRACT FILE PATH (FINAL FIX)
+// 🔥 EXTRACT FILE PATH
 // ============================
 const extractFilePath = (url) => {
   if (!url || typeof url !== "string") return null;
 
   try {
-    // ambil setelah /object/public/employees/
+    if (!url.includes("supabase")) return null;
+
     const parts = url.split("/object/public/employees/");
     if (!parts[1]) return null;
 
-    let path = parts[1]; // employees/xxx.jpg
+    let path = parts[1];
 
-    // 🔥 FIX: kalau masih double folder → buang 1 layer
     if (path.startsWith("employees/")) {
       path = path.replace("employees/", "");
     }
 
-    return path; // final: xxx.jpg
+    return path;
   } catch {
     return null;
   }
@@ -49,19 +52,12 @@ const deleteFile = async (url) => {
   try {
     const path = extractFilePath(url);
 
-    if (!path) {
-      console.log("⚠️ Skip delete, invalid URL:", url);
-      return;
-    }
-
-    console.log("🗑 DELETE PATH:", path);
+    if (!path) return;
 
     const { error } = await supabase.storage.from("employees").remove([path]);
 
     if (error) {
       console.log("❌ Supabase delete error:", error.message);
-    } else {
-      console.log("✅ File deleted:", path);
     }
   } catch (err) {
     console.log("❌ Delete file error:", err.message);
@@ -71,9 +67,19 @@ const deleteFile = async (url) => {
 // ============================
 // CREATE
 // ============================
-const createEmployee = async (data) => {
+const createEmployee = async (data, user_id = null) => {
   const employee = await Employee.create(data);
-  await safeRedisDel("employees");
+
+  await clearAllCache();
+
+  await logAudit({
+    user_id,
+    action: "CREATE",
+    entity: "employee",
+    entity_id: employee.id,
+    description: `Create employee ${employee.name}`,
+  });
+
   return employee;
 };
 
@@ -141,65 +147,84 @@ const getEmployeeById = async (id) => {
 };
 
 // ============================
-// UPDATE (🔥 SAFE REPLACE IMAGE)
+// UPDATE (SAFE + TRANSACTION)
 // ============================
-const updateEmployee = async (id, data) => {
-  const employee = await Employee.findByPk(id);
+const updateEmployee = async (id, data, user_id = null) => {
+  return await db.sequelize.transaction(async (t) => {
+    const employee = await Employee.findByPk(id, { transaction: t });
 
-  if (!employee) {
-    throw { status: 404, message: "Employee not found" };
-  }
+    if (!employee) {
+      throw { status: 404, message: "Employee not found" };
+    }
 
-  // 🔥 hanya hapus kalau benar-benar beda
-  if (data.photo && data.photo !== employee.photo) {
-    await deleteFile(employee.photo);
-  }
+    if (data.photo && data.photo !== employee.photo) {
+      await deleteFile(employee.photo);
+    }
 
-  if (data.ktp_photo && data.ktp_photo !== employee.ktp_photo) {
-    await deleteFile(employee.ktp_photo);
-  }
+    if (data.ktp_photo && data.ktp_photo !== employee.ktp_photo) {
+      await deleteFile(employee.ktp_photo);
+    }
 
-  // 🔥 jangan overwrite null
-  if (!data.photo) delete data.photo;
-  if (!data.ktp_photo) delete data.ktp_photo;
+    if (!data.photo) delete data.photo;
+    if (!data.ktp_photo) delete data.ktp_photo;
 
-  await employee.update(data);
+    await employee.update(data, { transaction: t });
 
-  await safeRedisDel("employees");
+    await clearAllCache();
 
-  return employee;
+    await logAudit({
+      user_id,
+      action: "UPDATE",
+      entity: "employee",
+      entity_id: id,
+      description: `Update employee ${employee.name}`,
+    });
+
+    return employee;
+  });
 };
 
 // ============================
-// DELETE (🔥 CLEAN STORAGE)
+// DELETE (SAFE + ATOMIC)
 // ============================
-const deleteEmployee = async (id) => {
-  const employee = await Employee.findByPk(id);
+const deleteEmployee = async (id, user_id = null) => {
+  return await db.sequelize.transaction(async (t) => {
+    const employee = await Employee.findByPk(id, { transaction: t });
 
-  if (!employee) {
-    throw { status: 404, message: "Employee not found" };
-  }
+    if (!employee) {
+      throw { status: 404, message: "Employee not found" };
+    }
 
-  const loan = await Loan.findOne({
-    where: { employee_id: id },
+    const loan = await Loan.findOne({
+      where: { employee_id: id },
+      transaction: t,
+    });
+
+    if (loan) {
+      throw {
+        status: 400,
+        message: "Tidak bisa hapus, karyawan punya riwayat loan",
+      };
+    }
+
+    // 🔥 delete file dulu
+    await deleteFile(employee.photo);
+    await deleteFile(employee.ktp_photo);
+
+    await employee.destroy({ transaction: t });
+
+    await clearAllCache();
+
+    await logAudit({
+      user_id,
+      action: "DELETE",
+      entity: "employee",
+      entity_id: id,
+      description: `Delete employee ${employee.name}`,
+    });
+
+    return true;
   });
-
-  if (loan) {
-    throw {
-      status: 400,
-      message: "Tidak bisa hapus, karyawan punya riwayat loan",
-    };
-  }
-
-  // 🔥 hapus file dari storage
-  await deleteFile(employee.photo);
-  await deleteFile(employee.ktp_photo);
-
-  await employee.destroy();
-
-  await safeRedisDel("employees");
-
-  return true;
 };
 
 module.exports = {

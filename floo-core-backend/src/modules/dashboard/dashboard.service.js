@@ -5,7 +5,7 @@ const { Employee, Loan, Transaction, Cashflow } = db;
 
 const getDashboard = async () => {
   // =========================================================
-  // 🔥 KPI (ANTI NULL)
+  // 🔥 KPI
   // =========================================================
   const [
     totalEmployees,
@@ -31,20 +31,19 @@ const getDashboard = async () => {
     totalLoan > 0 ? ((totalLoan - totalRemaining) / totalLoan) * 100 : 0;
 
   // =========================================================
-  // 🔥 RISKY LOAN
+  // 🔥 RISKY + OVERDUE (UPGRADE)
   // =========================================================
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const now = new Date();
 
-  const riskyLoans = await Loan.count({
+  const overdueLoans = await Loan.count({
     where: {
       remaining_amount: { [Op.gt]: 0 },
-      createdAt: { [Op.lt]: sevenDaysAgo },
+      due_date: { [Op.lt]: now }, // 🔥 pakai due_date (lebih akurat)
     },
   });
 
   // =========================================================
-  // 🔥 CASHFLOW CHART (SAFE)
+  // 🔥 CASHFLOW CHART
   // =========================================================
   const cashflowRaw = await Cashflow.findAll({
     attributes: [
@@ -61,24 +60,20 @@ const getDashboard = async () => {
 
   for (const c of cashflowRaw) {
     const date = c.date;
-    const type = c.type;
     const total = Number(c.total) || 0;
 
     if (!grouped[date]) {
       grouped[date] = { date, masuk: 0, keluar: 0 };
     }
 
-    if (type === "in") {
-      grouped[date].masuk += total;
-    } else if (type === "out") {
-      grouped[date].keluar += total;
-    }
+    if (c.type === "in") grouped[date].masuk += total;
+    else if (c.type === "out") grouped[date].keluar += total;
   }
 
   const cashflow = Object.values(grouped);
 
   // =========================================================
-  // 🔥 CASH BALANCE (SAFE)
+  // 🔥 CASH BALANCE
   // =========================================================
   const cashRaw = await Cashflow.findAll({
     attributes: [
@@ -94,7 +89,6 @@ const getDashboard = async () => {
 
   for (const c of cashRaw) {
     const total = Number(c.total) || 0;
-
     if (c.type === "in") totalIn += total;
     else if (c.type === "out") totalOut += total;
   }
@@ -102,7 +96,7 @@ const getDashboard = async () => {
   const cashBalance = totalIn - totalOut;
 
   // =========================================================
-  // 🔥 ACTIVITIES (FINAL FIX 🔥)
+  // 🔥 ACTIVITIES (NO BUG + NO MISLEADING)
   // =========================================================
   const activitiesRaw = await Cashflow.findAll({
     limit: 10,
@@ -111,8 +105,8 @@ const getDashboard = async () => {
       {
         model: Loan,
         as: "Loan",
-        attributes: ["id"],
-        required: false, // 🔥 biar gak crash kalau relasi putus
+        attributes: ["id", "employee_id"],
+        required: false,
         include: [
           {
             model: Employee,
@@ -128,17 +122,26 @@ const getDashboard = async () => {
   const activities = activitiesRaw.map((item) => {
     const employeeName = item.Loan?.Employee?.name;
 
+    // 🔥 FIX FINAL: jangan pakai "System Pembayaran"
+    let displayName = employeeName;
+
+    if (!displayName) {
+      if (item.source === "loan") {
+        displayName = "Pinjaman Baru";
+      } else if (item.source === "payment") {
+        displayName = "Pembayaran";
+      } else {
+        displayName = "-";
+      }
+    }
+
     return {
       id: item.id,
       amount: Number(item.amount) || 0,
       type: item.type,
       source: item.source,
       date: item.createdAt,
-
-      // 🔥 FIX FINAL (TIDAK MENYESATKAN)
-      employee:
-        employeeName ||
-        (item.source === "loan" ? "System (Pencairan)" : "System (Pembayaran)"),
+      employee: displayName,
     };
   });
 
@@ -173,7 +176,7 @@ const getDashboard = async () => {
       activeLoans,
       paidLoans,
       collectionRate: Number(collectionRate.toFixed(2)),
-      riskyLoans,
+      overdueLoans, // 🔥 UPGRADE
 
       cashBalance,
       cashIn: totalIn,

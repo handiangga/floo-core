@@ -1,21 +1,14 @@
 const db = require("../../../models");
-const redis = require("../../config/redis");
+const { Op } = require("sequelize");
+
+const { clearAllCache } = require("../../utils/cache");
+const { logAudit } = require("../../utils/audit");
 
 const { Transaction, Loan, Cashflow } = db;
 
-// 🔥 CLEAR CACHE
-const clearCache = async () => {
-  if (redis) {
-    try {
-      await redis.del("transactions");
-      await redis.del("dashboard"); // 🔥 tambahan
-    } catch (err) {
-      console.log("Redis clear error:", err.message);
-    }
-  }
-};
-
+// ============================
 // 🔥 RECALC LOAN
+// ============================
 const recalcLoanTransactions = async (loan_id, t) => {
   const loan = await Loan.findByPk(loan_id, {
     transaction: t,
@@ -46,14 +39,27 @@ const recalcLoanTransactions = async (loan_id, t) => {
     await trx.save({ transaction: t });
   }
 
+  // 🔥 OVERDUE CHECK
+  const now = new Date();
+
+  let status = "ongoing";
+
+  if (remaining === 0) {
+    status = "paid";
+  } else if (loan.due_date && now > loan.due_date) {
+    status = "overdue";
+  }
+
   loan.remaining_amount = remaining;
-  loan.status = remaining === 0 ? "paid" : "ongoing";
+  loan.status = status;
 
   await loan.save({ transaction: t });
 };
 
-// 🔥 CREATE TRANSACTION (FIX FINAL)
-const createTransaction = async ({ loan_id, amount, file }) => {
+// ============================
+// 🔥 CREATE TRANSACTION
+// ============================
+const createTransaction = async ({ loan_id, amount, file, user_id = null }) => {
   return await db.sequelize.transaction(async (t) => {
     const loan = await Loan.findByPk(loan_id, {
       transaction: t,
@@ -76,7 +82,22 @@ const createTransaction = async ({ loan_id, amount, file }) => {
       throw { status: 400, message: "Amount exceeds remaining loan" };
     }
 
-    // ✅ CREATE TRANSACTION
+    // 🔥 DUPLICATE PROTECTION (5 detik)
+    const existing = await Transaction.findOne({
+      where: {
+        loan_id,
+        amount,
+        createdAt: {
+          [Op.gte]: new Date(Date.now() - 5000),
+        },
+      },
+      transaction: t,
+    });
+
+    if (existing) {
+      throw { status: 400, message: "Duplicate payment detected" };
+    }
+
     const trx = await Transaction.create(
       {
         loan_id,
@@ -89,26 +110,35 @@ const createTransaction = async ({ loan_id, amount, file }) => {
       { transaction: t },
     );
 
-    // 🔥 FIX PALING PENTING DISINI
     await Cashflow.create(
       {
         type: "in",
         amount,
         source: "payment",
-        reference_id: loan_id, // ✅ FIX FINAL
+        reference_id: loan_id,
         note: "Pembayaran pinjaman",
       },
       { transaction: t },
     );
 
     await recalcLoanTransactions(loan_id, t);
-    await clearCache();
+    await clearAllCache();
+
+    await logAudit({
+      user_id,
+      action: "CREATE",
+      entity: "transaction",
+      entity_id: trx.id,
+      description: `Payment ${amount}`,
+    });
 
     return trx;
   });
 };
 
+// ============================
 // 🔥 GET ALL
+// ============================
 const getAllTransactions = async ({ page = 1, limit = 10, loan_id }) => {
   const offset = (page - 1) * limit;
 
@@ -141,7 +171,9 @@ const getAllTransactions = async ({ page = 1, limit = 10, loan_id }) => {
   };
 };
 
+// ============================
 // 🔥 DETAIL
+// ============================
 const getTransactionById = async (id) => {
   const trx = await Transaction.findByPk(id, {
     include: [
@@ -157,8 +189,10 @@ const getTransactionById = async (id) => {
   return trx;
 };
 
+// ============================
 // 🔥 UPDATE
-const updateTransaction = async (id, { amount, file }) => {
+// ============================
+const updateTransaction = async (id, { amount, file }, user_id = null) => {
   return await db.sequelize.transaction(async (t) => {
     const trx = await Transaction.findByPk(id, { transaction: t });
 
@@ -185,21 +219,29 @@ const updateTransaction = async (id, { amount, file }) => {
       trx.amount = amount;
     }
 
-    if (file) {
-      trx.proof = file;
-    }
+    if (file) trx.proof = file;
 
     await trx.save({ transaction: t });
 
     await recalcLoanTransactions(trx.loan_id, t);
-    await clearCache();
+    await clearAllCache();
+
+    await logAudit({
+      user_id,
+      action: "UPDATE",
+      entity: "transaction",
+      entity_id: id,
+      description: "Update transaction",
+    });
 
     return trx;
   });
 };
 
+// ============================
 // 🔥 DELETE
-const deleteTransaction = async (id) => {
+// ============================
+const deleteTransaction = async (id, user_id = null) => {
   return await db.sequelize.transaction(async (t) => {
     const trx = await Transaction.findByPk(id, { transaction: t });
 
@@ -207,10 +249,28 @@ const deleteTransaction = async (id) => {
 
     const loan_id = trx.loan_id;
 
+    // 🔥 DELETE CASHFLOW TERKAIT
+    await Cashflow.destroy({
+      where: {
+        reference_id: loan_id,
+        source: "payment",
+        amount: trx.amount,
+      },
+      transaction: t,
+    });
+
     await trx.destroy({ transaction: t });
 
     await recalcLoanTransactions(loan_id, t);
-    await clearCache();
+    await clearAllCache();
+
+    await logAudit({
+      user_id,
+      action: "DELETE",
+      entity: "transaction",
+      entity_id: id,
+      description: "Delete transaction",
+    });
 
     return true;
   });

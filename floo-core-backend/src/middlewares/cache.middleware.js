@@ -1,20 +1,21 @@
-const getRedis = require("../config/redis");
+const redis = require("../config/redis");
 
-const cache = (keyPrefix) => {
+const cache = (prefix) => {
   return async (req, res, next) => {
     try {
-      const redis = getRedis();
-
       if (!redis) return next();
 
-      const key = keyPrefix + JSON.stringify(req.query);
+      // 🔥 KEY LEBIH AMAN (include user + path + query)
+      const userId = req.user?.id || "guest";
+      const key = prefix + req.originalUrl + ":" + userId;
 
       let cached;
+
       try {
         cached = await redis.get(key);
       } catch (err) {
         console.log("REDIS GET ERROR:", err.message);
-        return next(); // 🔥 jangan lanjut cache
+        return next();
       }
 
       if (cached) {
@@ -25,7 +26,7 @@ const cache = (keyPrefix) => {
 
       res.json = async (body) => {
         try {
-          await redis.setEx(key, 60, JSON.stringify(body));
+          await redis.setEx(key, 60, JSON.stringify(body)); // 60 detik
         } catch (err) {
           console.log("REDIS SET ERROR:", err.message);
         }

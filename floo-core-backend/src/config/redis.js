@@ -4,20 +4,18 @@ let client = null;
 
 async function initRedis() {
   try {
-    const redisClient = createClient({
+    client = createClient({
       url: process.env.REDIS_URL || "redis://localhost:6379",
     });
 
-    // 🔥 HANDLE ERROR (tapi jangan spam)
-    redisClient.on("error", (err) => {
-      if (err.code === "ECONNREFUSED") return; // skip spam
+    client.on("error", (err) => {
+      if (err.code === "ECONNREFUSED") return;
       console.log("Redis Error:", err.message);
     });
 
-    await redisClient.connect();
+    await client.connect();
 
     console.log("🔥 Redis connected");
-    client = redisClient;
   } catch (err) {
     console.log("⚠️ Redis disabled (not running)");
     client = null;
@@ -26,4 +24,5 @@ async function initRedis() {
 
 initRedis();
 
-module.exports = () => client;
+// 🔥 EXPORT LANGSUNG INSTANCE
+module.exports = client;
