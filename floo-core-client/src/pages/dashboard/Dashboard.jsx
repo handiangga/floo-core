@@ -11,8 +11,6 @@ import {
 
 import FinanceCard from "../../components/ui/FinanceCard";
 import StatCard from "../../components/ui/StatCard";
-
-// 🔥 PASTIKAN PAKAI YANG INI (BUKAN DI UI)
 import ActivityItem from "../../components/dashboard/ActivityItem";
 import CashflowChart from "../../components/dashboard/CashflowChart";
 import TopDebtor from "../../components/dashboard/TopDebtor";
@@ -22,26 +20,34 @@ import dayjs from "dayjs";
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
-
+  // 🔥 FETCH
   const fetchDashboard = async () => {
     try {
+      setLoading(true);
+      setError("");
+
       const res = await api.get("/dashboard");
       setData(res.data.data);
     } catch (err) {
       console.error(err);
+      setError("Gagal load dashboard");
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchDashboard();
+  }, []);
+
   const s = data?.summary || {};
   const safe = (v) => Number(v) || 0;
 
-  // 🔥 ACTIVITY FIX TOTAL
+  // =========================================================
+  // 🔥 ACTIVITY (SAFE + FORMAT)
+  // =========================================================
   const activities = useMemo(() => {
     if (!data?.activities) return [];
 
@@ -51,11 +57,13 @@ export default function Dashboard() {
       amount: Number(item.amount) || 0,
       source: item.source || "payment",
       employee: item.employee || "-",
-      date: item.date,
+      date: item.date ? dayjs(item.date).format("DD MMM YYYY") : "-",
     }));
   }, [data]);
 
+  // =========================================================
   // 🔥 KPI ATAS
+  // =========================================================
   const financeCards = [
     {
       title: "Total Pegawai",
@@ -93,7 +101,9 @@ export default function Dashboard() {
     },
   ];
 
+  // =========================================================
   // 🔥 KPI BAWAH
+  // =========================================================
   const statCards = [
     { title: "Loan Aktif", value: safe(s.activeLoans) },
     { title: "Loan Lunas", value: safe(s.paidLoans) },
@@ -112,10 +122,13 @@ export default function Dashboard() {
     },
   ];
 
+  // =========================================================
+  // 🔥 LOADING STATE
+  // =========================================================
   if (loading) {
     return (
       <Layout>
-        <div className="animate-pulse grid grid-cols-5 gap-4">
+        <div className="animate-pulse grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="h-24 bg-gray-200 rounded-xl" />
           ))}
@@ -124,14 +137,45 @@ export default function Dashboard() {
     );
   }
 
-  if (!data) return <Layout>Error load data</Layout>;
+  // =========================================================
+  // 🔥 ERROR STATE
+  // =========================================================
+  if (error) {
+    return (
+      <Layout>
+        <div className="text-center py-10">
+          <p className="text-red-500">{error}</p>
+          <button
+            onClick={fetchDashboard}
+            className="mt-3 px-4 py-2 bg-blue-500 text-white rounded"
+          >
+            Retry
+          </button>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!data) return <Layout>Data tidak ditemukan</Layout>;
 
   return (
     <Layout>
       {/* HEADER */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Dashboard Keuangan</h1>
-        <p className="text-gray-500 text-sm">Monitoring pinjaman & cashflow</p>
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard Keuangan</h1>
+          <p className="text-gray-500 text-sm">
+            Monitoring pinjaman & cashflow
+          </p>
+        </div>
+
+        {/* 🔥 REFRESH BUTTON */}
+        <button
+          onClick={fetchDashboard}
+          className="text-sm px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+        >
+          Refresh
+        </button>
       </div>
 
       {/* KPI */}
@@ -151,7 +195,7 @@ export default function Dashboard() {
       {/* CHART + ACTIVITY */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-8">
         <div className="xl:col-span-2">
-          <CashflowChart data={data.cashflow} />
+          <CashflowChart data={data.cashflow || []} />
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow">
@@ -167,9 +211,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 🔥 TOP DEBTOR */}
+      {/* TOP DEBTOR */}
       <div className="mt-6">
-        <TopDebtor data={data.topDebtors} />
+        <TopDebtor data={data.topDebtors || []} />
       </div>
     </Layout>
   );
