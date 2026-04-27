@@ -13,6 +13,7 @@ export default function CreateLoan() {
   const [employeeId, setEmployeeId] = useState("");
   const [amount, setAmount] = useState(0);
   const [display, setDisplay] = useState("");
+  const [tenor, setTenor] = useState(1); // ✅ NEW
 
   const INTEREST = 5;
 
@@ -44,9 +45,9 @@ export default function CreateLoan() {
     return employees.find((e) => e.id == employeeId);
   }, [employeeId, employees]);
 
-  // 🔥 SIMULASI (OPTIONAL UI)
+  // 🔥 SIMULASI
   const simulation = useMemo(() => {
-    if (!emp || !amount) return null;
+    if (!emp || !amount || !tenor) return null;
 
     const salary = Number(emp.salary || 0);
     const isWeekly = emp.salary_type === "weekly";
@@ -56,15 +57,22 @@ export default function CreateLoan() {
     const interestAmount = Math.ceil(amount * (INTEREST / 100));
     const total = amount + interestAmount;
 
+    const installment = Math.ceil(total / tenor);
+
     return {
       maxLoan,
       isWeekly,
       interestAmount,
       total,
+      installment,
     };
-  }, [emp, amount]);
+  }, [emp, amount, tenor]);
 
   const isOverLimit = simulation && amount > simulation.maxLoan;
+
+  // ✅ BATAS CICILAN MAX 50% GAJI
+  const isOverInstallment =
+    simulation && emp && simulation.installment > emp.salary * 0.5;
 
   // 🔥 INPUT
   const handleAmount = (val) => {
@@ -73,11 +81,11 @@ export default function CreateLoan() {
     setDisplay(formatRupiah(num));
   };
 
-  // 🔥 SUBMIT (FIXED)
+  // 🔥 SUBMIT
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!employeeId || !amount) {
+    if (!employeeId || !amount || !tenor) {
       return Swal.fire("Error", "Lengkapi data", "warning");
     }
 
@@ -85,13 +93,18 @@ export default function CreateLoan() {
       return Swal.fire("Error", "Melebihi limit pinjaman", "warning");
     }
 
+    if (isOverInstallment) {
+      return Swal.fire("Error", "Cicilan terlalu besar", "warning");
+    }
+
     try {
       setLoading(true);
 
       await api.post("/loans", {
         employee_id: employeeId,
-        amount: amount, // ✅ FIX (INI DOANG YANG DIKIRIM)
+        amount: amount,
         interest_rate: INTEREST,
+        tenor: tenor, // ✅ NEW
       });
 
       Swal.fire("Berhasil", "Loan dibuat", "success");
@@ -121,7 +134,7 @@ export default function CreateLoan() {
 
           <div>
             <h1 className="text-2xl font-bold">Buat Pinjaman</h1>
-            <p className="text-gray-500 text-sm">Simulasi pinjaman + bunga</p>
+            <p className="text-gray-500 text-sm">Simulasi pinjaman + cicilan</p>
           </div>
         </div>
 
@@ -151,7 +164,7 @@ export default function CreateLoan() {
             </div>
           )}
 
-          {/* INPUT */}
+          {/* INPUT NOMINAL */}
           <div className="relative">
             <span className="absolute left-3 top-3 text-gray-500">Rp</span>
 
@@ -163,9 +176,29 @@ export default function CreateLoan() {
             />
           </div>
 
+          {/* TENOR */}
+          <select
+            value={tenor}
+            onChange={(e) => setTenor(Number(e.target.value))}
+            className="w-full border px-4 py-3 rounded-xl"
+          >
+            <option value={1}>1 bulan</option>
+            <option value={2}>2 bulan</option>
+            <option value={3}>3 bulan</option>
+            <option value={6}>6 bulan</option>
+          </select>
+
           {/* WARNING */}
           {isOverLimit && (
-            <div className="text-red-500 text-sm">Melebihi limit pinjaman</div>
+            <div className="text-red-500 text-sm">
+              Melebihi limit pinjaman (max 2x gaji)
+            </div>
+          )}
+
+          {isOverInstallment && (
+            <div className="text-red-500 text-sm">
+              Cicilan terlalu besar (max 50% gaji)
+            </div>
           )}
 
           {/* SIMULASI */}
@@ -175,19 +208,27 @@ export default function CreateLoan() {
                 Pokok: <b>Rp {formatRupiah(amount)}</b>
               </p>
               <p>
-                Bunga: <b>Rp {formatRupiah(simulation.interestAmount)}</b>
+                Bunga ({INTEREST}%):{" "}
+                <b>Rp {formatRupiah(simulation.interestAmount)}</b>
               </p>
               <p>
                 Total: <b>Rp {formatRupiah(simulation.total)}</b>
+              </p>
+
+              <hr />
+
+              <p>
+                Cicilan / {tenor} {simulation.isWeekly ? "minggu" : "bulan"}:
+                <b> Rp {formatRupiah(simulation.installment)}</b>
               </p>
             </div>
           )}
 
           {/* BUTTON */}
           <button
-            disabled={loading || isOverLimit}
+            disabled={loading || isOverLimit || isOverInstallment}
             onClick={handleSubmit}
-            className="w-full bg-blue-500 text-white py-3 rounded-xl hover:bg-blue-600 transition"
+            className="w-full bg-blue-500 text-white py-3 rounded-xl hover:bg-blue-600 transition disabled:opacity-50"
           >
             {loading ? "Menyimpan..." : "Simpan"}
           </button>
