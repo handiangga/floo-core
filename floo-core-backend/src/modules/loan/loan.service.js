@@ -63,7 +63,7 @@ const calculateLoan = (employee, principal, interest_rate = 0, tenorInput) => {
 };
 
 // ============================
-// 🔥 CREATE LOAN (NEW FLOW)
+// 🔥 CREATE LOAN
 // ============================
 const createLoan = async ({
   employee_id,
@@ -78,9 +78,7 @@ const createLoan = async ({
       lock: t.LOCK.UPDATE,
     });
 
-    if (!employee) {
-      throw { status: 404, message: "Employee not found" };
-    }
+    if (!employee) throw { status: 404, message: "Employee not found" };
 
     const principal = Number(principal_amount);
 
@@ -88,7 +86,6 @@ const createLoan = async ({
       throw { status: 400, message: "Amount must be greater than 0" };
     }
 
-    // 🔥 CEK LOAN AKTIF
     const existingLoan = await Loan.findOne({
       where: {
         employee_id,
@@ -107,10 +104,8 @@ const createLoan = async ({
       };
     }
 
-    // 🔥 HITUNG (SIMPAN DULU, BELUM FINAL)
     const result = calculateLoan(employee, principal, interest_rate, tenor);
 
-    // 🔥 CREATE (BELUM AKTIF)
     const loan = await Loan.create(
       {
         employee_id,
@@ -168,12 +163,11 @@ const approveByManager = async (loan_id, user_id) => {
 };
 
 // ============================
-// 🔥 APPROVE OWNER (FINAL)
+// 🔥 APPROVE OWNER
 // ============================
 const approveByOwner = async (loan_id, user_id) => {
   return await db.sequelize.transaction(async (t) => {
     const loan = await Loan.findByPk(loan_id, {
-      include: [{ model: Employee, as: "Employee" }],
       transaction: t,
       lock: t.LOCK.UPDATE,
     });
@@ -184,7 +178,13 @@ const approveByOwner = async (loan_id, user_id) => {
       throw { status: 400, message: "Invalid status" };
     }
 
-    const employee = loan.Employee;
+    const employee = await Employee.findByPk(loan.employee_id, {
+      transaction: t,
+    });
+
+    if (!employee) {
+      throw { status: 404, message: "Employee not found" };
+    }
 
     const result = calculateLoan(
       employee,
@@ -202,7 +202,6 @@ const approveByOwner = async (loan_id, user_id) => {
       dueDate.setDate(dueDate.getDate() + result.tenor * 7);
     }
 
-    // 🔥 FINAL UPDATE
     await loan.update(
       {
         interest_amount: result.interest,
@@ -219,7 +218,6 @@ const approveByOwner = async (loan_id, user_id) => {
       { transaction: t },
     );
 
-    // 🔥 CASHFLOW OUT
     await Cashflow.create(
       {
         type: "out",
@@ -246,148 +244,10 @@ const approveByOwner = async (loan_id, user_id) => {
 };
 
 // ============================
-// 🔥 GET ALL
+// 🔥 EXPORT
 // ============================
-const getAllLoans = async ({ page = 1, limit = 10 }) => {
-  const offset = (page - 1) * limit;
-
-  const { rows, count } = await Loan.findAndCountAll({
-    include: [
-      {
-        model: Employee,
-        as: "Employee",
-        attributes: ["id", "name", "position"],
-      },
-    ],
-    limit: parseInt(limit),
-    offset: parseInt(offset),
-    order: [["createdAt", "DESC"]],
-  });
-
-  return {
-    data: rows,
-    pagination: {
-      total: count,
-      page: parseInt(page),
-      totalPages: Math.ceil(count / limit),
-    },
-  };
-};
-
-// ============================
-// 🔥 DETAIL
-// ============================
-const getLoanById = async (id) => {
-  const loan = await Loan.findByPk(id, {
-    include: [
-      {
-        model: Employee,
-        as: "Employee",
-        attributes: ["id", "name", "position"],
-      },
-    ],
-  });
-
-  if (!loan) {
-    throw { status: 404, message: "Loan not found" };
-  }
-
-  return loan;
-};
-
-// ============================
-// 🔥 UPDATE
-// ============================
-const updateLoan = async (id, data, user_id = null) => {
-  return await db.sequelize.transaction(async (t) => {
-    const loan = await Loan.findByPk(id, { transaction: t });
-
-    if (!loan) {
-      throw { status: 404, message: "Loan not found" };
-    }
-
-    if (loan.status !== "pending_manager") {
-      throw {
-        status: 400,
-        message: "Loan tidak bisa diubah setelah approval",
-      };
-    }
-
-    await loan.update(data, { transaction: t });
-
-    await clearAllCache();
-
-    await logAudit({
-      user_id,
-      action: "UPDATE",
-      entity: "loan",
-      entity_id: id,
-      description: "Update loan",
-    });
-
-    return loan;
-  });
-};
-
-// ============================
-// 🔥 DELETE
-// ============================
-const deleteLoan = async (id, user_id = null) => {
-  return await db.sequelize.transaction(async (t) => {
-    const loan = await Loan.findByPk(id, { transaction: t });
-
-    if (!loan) {
-      throw { status: 404, message: "Loan not found" };
-    }
-
-    if (loan.status !== "pending_manager") {
-      throw {
-        status: 400,
-        message: "Loan tidak bisa dihapus setelah approval",
-      };
-    }
-
-    await loan.destroy({ transaction: t });
-
-    await clearAllCache();
-
-    await logAudit({
-      user_id,
-      action: "DELETE",
-      entity: "loan",
-      entity_id: id,
-      description: "Delete loan",
-    });
-
-    return true;
-  });
-};
-
-// ============================
-// 🔥 SIMULATE
-// ============================
-const simulateLoan = async ({
-  employee_id,
-  principal_amount,
-  interest_rate = 0,
-  tenor,
-}) => {
-  const employee = await Employee.findByPk(employee_id);
-
-  if (!employee) {
-    throw { status: 404, message: "Employee not found" };
-  }
-
-  return calculateLoan(employee, principal_amount, interest_rate, tenor);
-};
-
 module.exports = {
   createLoan,
   approveByManager,
   approveByOwner,
-  getAllLoans,
-  getLoanById,
-  updateLoan,
-  deleteLoan,
-  simulateLoan,
 };
