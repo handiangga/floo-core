@@ -9,9 +9,14 @@ export default function useLoan() {
   const fetchData = async () => {
     try {
       setLoading(true);
+
       const res = await api.get("/loans");
-      setData(res?.data?.data?.data || []);
+
+      console.log("LOAN RES:", res.data); // 🔥 debug
+
+      setData(res?.data?.data || []);
     } catch (err) {
+      console.error("LOAN ERROR:", err);
       Swal.fire("Error", "Gagal ambil loan", "error");
     } finally {
       setLoading(false);
