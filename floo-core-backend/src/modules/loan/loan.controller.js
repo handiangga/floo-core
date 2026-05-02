@@ -62,7 +62,7 @@ exports.approveOwner = async (req, res, next) => {
 // ============================
 exports.getAllLoans = async (req, res, next) => {
   try {
-    const data = await service.getAllLoans(req.query);
+    const data = await service.getAllLoans();
     response.success(res, data);
   } catch (err) {
     next(err);
@@ -95,11 +95,7 @@ exports.updateLoan = async (req, res, next) => {
     const { error: bodyError } = updateLoanSchema.validate(req.body);
     if (bodyError) throw { status: 400, message: bodyError.message };
 
-    const data = await service.updateLoan(
-      req.params.id,
-      req.body,
-      req.user?.id || null,
-    );
+    const data = await service.updateLoan(req.params.id, req.body);
 
     response.success(res, data, "Loan updated");
   } catch (err) {
@@ -115,7 +111,7 @@ exports.deleteLoan = async (req, res, next) => {
     const { error } = loanIdParam.validate(req.params);
     if (error) throw { status: 400, message: error.message };
 
-    await service.deleteLoan(req.params.id, req.user?.id || null);
+    await service.deleteLoan(req.params.id);
 
     response.success(res, null, "Deleted successfully");
   } catch (err) {

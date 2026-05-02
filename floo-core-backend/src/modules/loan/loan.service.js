@@ -137,6 +137,102 @@ const createLoan = async ({
 };
 
 // ============================
+// 🔥 GET ALL LOANS (NO HANG)
+// ============================
+const getAllLoans = async () => {
+  const loans = await Loan.findAll({
+    include: [
+      {
+        model: Employee,
+        as: "Employee",
+        attributes: ["id", "name", "position"],
+        required: false,
+      },
+    ],
+    order: [["createdAt", "DESC"]],
+  });
+
+  return loans;
+};
+
+// ============================
+// 🔥 GET DETAIL
+// ============================
+const getLoanById = async (id) => {
+  const loan = await Loan.findByPk(id, {
+    include: [
+      {
+        model: Employee,
+        as: "Employee",
+        attributes: ["id", "name", "position"],
+        required: false,
+      },
+    ],
+  });
+
+  if (!loan) throw { status: 404, message: "Loan not found" };
+
+  return loan;
+};
+
+// ============================
+// 🔥 UPDATE LOAN (SAFE)
+// ============================
+const updateLoan = async (id, payload) => {
+  const loan = await Loan.findByPk(id);
+
+  if (!loan) throw { status: 404, message: "Loan not found" };
+
+  if (loan.status !== "pending_manager") {
+    throw { status: 400, message: "Loan tidak bisa di edit" };
+  }
+
+  const employee = await Employee.findByPk(loan.employee_id);
+  if (!employee) throw { status: 404, message: "Employee not found" };
+
+  const principal = Number(payload.principal_amount || loan.principal_amount);
+  const interest_rate = payload.interest_rate ?? loan.interest_rate;
+  const tenor = payload.tenor ?? loan.tenor;
+
+  const result = calculateLoan(employee, principal, interest_rate, tenor);
+
+  await loan.update({
+    principal_amount: principal,
+    interest_amount: result.interest,
+    interest_rate,
+    tenor: result.tenor,
+    installment: result.installment,
+    type: result.type,
+  });
+
+  return loan;
+};
+
+// ============================
+// 🔥 DELETE LOAN (SAFE)
+// ============================
+const deleteLoan = async (id) => {
+  const loan = await Loan.findByPk(id);
+
+  if (!loan) throw { status: 404, message: "Loan not found" };
+
+  const isLunas = loan.remaining_amount === 0;
+  const isPending =
+    loan.status === "pending_manager" || loan.status === "pending_owner";
+
+  if (!isLunas && !isPending) {
+    throw {
+      status: 400,
+      message: "Loan tidak bisa dihapus (sudah berjalan)",
+    };
+  }
+
+  await loan.destroy();
+
+  return true;
+};
+
+// ============================
 // 🔥 APPROVE MANAGER
 // ============================
 const approveByManager = async (loan_id, user_id) => {
@@ -248,6 +344,10 @@ const approveByOwner = async (loan_id, user_id) => {
 // ============================
 module.exports = {
   createLoan,
+  getAllLoans,
+  getLoanById,
+  updateLoan,
+  deleteLoan,
   approveByManager,
   approveByOwner,
 };

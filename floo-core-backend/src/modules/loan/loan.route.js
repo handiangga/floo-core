@@ -2,36 +2,35 @@ const express = require("express");
 const controller = require("./loan.controller");
 const { verifyToken } = require("../../middlewares/auth.middleware");
 const rbac = require("../../middlewares/rbac.middleware");
-const cache = require("../../middlewares/cache.middleware");
 
 const router = express.Router();
 
 // ============================
-// 🔥 SIMULATE (HARUS DI ATAS)
+// 🔥 SIMULATE
 // ============================
 router.post("/simulate", verifyToken, controller.simulateLoan);
 
 // ============================
-// 🔥 APPROVAL FLOW (WAJIB DI ATAS /:id)
+// 🔥 APPROVAL FLOW
 // ============================
 router.post(
   "/:id/approve-manager",
   verifyToken,
   rbac(["manager"]),
-  controller.approveManager,
+  controller.approveManager
 );
 
 router.post(
   "/:id/approve-owner",
   verifyToken,
-  rbac(["owner"]), // owner
-  controller.approveOwner,
+  rbac(["owner"]),
+  controller.approveOwner
 );
 
 // ============================
-// 🔥 GET ALL (CACHE)
+// 🔥 GET ALL
 // ============================
-router.get("/", verifyToken, cache("loans:"), controller.getAllLoans);
+router.get("/", verifyToken, controller.getAllLoans);
 
 // ============================
 // 🔥 GET DETAIL
@@ -39,17 +38,17 @@ router.get("/", verifyToken, cache("loans:"), controller.getAllLoans);
 router.get("/:id", verifyToken, controller.getLoanById);
 
 // ============================
-// 🔥 CREATE (ADMIN)
+// 🔥 CREATE
 // ============================
 router.post("/", verifyToken, rbac(["admin"]), controller.createLoan);
 
 // ============================
-// 🔥 UPDATE (ADMIN)
+// 🔥 UPDATE
 // ============================
 router.put("/:id", verifyToken, rbac(["admin"]), controller.updateLoan);
 
 // ============================
-// 🔥 DELETE (ADMIN)
+// 🔥 DELETE
 // ============================
 router.delete("/:id", verifyToken, rbac(["admin"]), controller.deleteLoan);
 
