@@ -24,7 +24,7 @@ router.post(
 router.post(
   "/:id/approve-owner",
   verifyToken,
-  rbac(["admin"]), // owner = admin
+  rbac(["owner"]), // owner
   controller.approveOwner,
 );
 
