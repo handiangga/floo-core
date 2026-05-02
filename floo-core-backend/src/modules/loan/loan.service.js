@@ -160,7 +160,7 @@ const approveByManager = async (loan_id, user_id) => {
         approved_by_manager: user_id,
         approved_at_manager: new Date(),
       },
-      { transaction: t }
+      { transaction: t },
     );
 
     return loan;
@@ -190,7 +190,7 @@ const approveByOwner = async (loan_id, user_id) => {
       employee,
       loan.principal_amount,
       loan.interest_rate,
-      loan.tenor
+      loan.tenor,
     );
 
     const now = new Date();
@@ -216,7 +216,7 @@ const approveByOwner = async (loan_id, user_id) => {
         disbursed_at: now,
         due_date: dueDate,
       },
-      { transaction: t }
+      { transaction: t },
     );
 
     // 🔥 CASHFLOW OUT
@@ -228,7 +228,7 @@ const approveByOwner = async (loan_id, user_id) => {
         reference_id: loan.id,
         note: "Pencairan pinjaman",
       },
-      { transaction: t }
+      { transaction: t },
     );
 
     await clearAllCache();
