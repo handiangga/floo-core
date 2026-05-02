@@ -6,33 +6,60 @@ const {
 } = require("./loan.validation");
 const response = require("../../utils/response");
 
-// 🔥 CREATE (FINAL - BACKEND SOURCE OF TRUTH)
+// ============================
+// 🔥 CREATE
+// ============================
 exports.createLoan = async (req, res, next) => {
   try {
-    const { error } = createLoanSchema.validate(req.body);
+    const { error, value } = createLoanSchema.validate(req.body);
     if (error) throw { status: 400, message: error.message };
 
-    const {
-      employee_id,
-      amount,
-      interest_rate = 5,
-      tenor, // ✅ TAMBAH INI
-    } = req.body;
-
     const data = await service.createLoan({
-      employee_id,
-      amount,
-      interest_rate,
-      tenor, // ✅ KIRIM KE SERVICE
+      ...value,
+      user_id: req.user?.id || null,
     });
 
-    response.success(res, data, "Loan created");
+    response.success(res, data, "Loan created (pending approval)");
   } catch (err) {
     next(err);
   }
 };
 
+// ============================
+// 🔥 APPROVE MANAGER
+// ============================
+exports.approveManager = async (req, res, next) => {
+  try {
+    const { error } = loanIdParam.validate(req.params);
+    if (error) throw { status: 400, message: error.message };
+
+    const data = await service.approveByManager(req.params.id, req.user.id);
+
+    response.success(res, data, "Approved by manager");
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ============================
+// 🔥 APPROVE OWNER
+// ============================
+exports.approveOwner = async (req, res, next) => {
+  try {
+    const { error } = loanIdParam.validate(req.params);
+    if (error) throw { status: 400, message: error.message };
+
+    const data = await service.approveByOwner(req.params.id, req.user.id);
+
+    response.success(res, data, "Approved by owner");
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ============================
 // 🔥 GET ALL
+// ============================
 exports.getAllLoans = async (req, res, next) => {
   try {
     const data = await service.getAllLoans(req.query);
@@ -42,7 +69,9 @@ exports.getAllLoans = async (req, res, next) => {
   }
 };
 
+// ============================
 // 🔥 GET DETAIL
+// ============================
 exports.getLoanById = async (req, res, next) => {
   try {
     const { error } = loanIdParam.validate(req.params);
@@ -55,7 +84,9 @@ exports.getLoanById = async (req, res, next) => {
   }
 };
 
-// 🔥 UPDATE (LOCK)
+// ============================
+// 🔥 UPDATE
+// ============================
 exports.updateLoan = async (req, res, next) => {
   try {
     const { error: paramError } = loanIdParam.validate(req.params);
@@ -64,7 +95,11 @@ exports.updateLoan = async (req, res, next) => {
     const { error: bodyError } = updateLoanSchema.validate(req.body);
     if (bodyError) throw { status: 400, message: bodyError.message };
 
-    const data = await service.updateLoan(req.params.id, req.body);
+    const data = await service.updateLoan(
+      req.params.id,
+      req.body,
+      req.user?.id || null,
+    );
 
     response.success(res, data, "Loan updated");
   } catch (err) {
@@ -72,13 +107,15 @@ exports.updateLoan = async (req, res, next) => {
   }
 };
 
+// ============================
 // 🔥 DELETE
+// ============================
 exports.deleteLoan = async (req, res, next) => {
   try {
     const { error } = loanIdParam.validate(req.params);
     if (error) throw { status: 400, message: error.message };
 
-    await service.deleteLoan(req.params.id);
+    await service.deleteLoan(req.params.id, req.user?.id || null);
 
     response.success(res, null, "Deleted successfully");
   } catch (err) {
@@ -86,22 +123,15 @@ exports.deleteLoan = async (req, res, next) => {
   }
 };
 
-// 🔥 SIMULATE (FE PREVIEW SUPPORT TENOR)
+// ============================
+// 🔥 SIMULATE
+// ============================
 exports.simulateLoan = async (req, res, next) => {
   try {
-    const {
-      employee_id,
-      amount,
-      interest_rate = 5,
-      tenor, // ✅ TAMBAH INI
-    } = req.body;
+    const { error, value } = createLoanSchema.validate(req.body);
+    if (error) throw { status: 400, message: error.message };
 
-    const result = await service.simulateLoan({
-      employee_id,
-      amount,
-      interest_rate,
-      tenor, // ✅ KIRIM JUGA
-    });
+    const result = await service.simulateLoan(value);
 
     response.success(res, result);
   } catch (err) {

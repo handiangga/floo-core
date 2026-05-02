@@ -11,6 +11,7 @@ module.exports = (sequelize, DataTypes) => {
 
       Loan.hasMany(models.Transaction, {
         foreignKey: "loan_id",
+        as: "Transactions",
       });
     }
   }
@@ -24,57 +25,79 @@ module.exports = (sequelize, DataTypes) => {
 
       // 🔥 CORE LOAN
       principal_amount: {
-        type: DataTypes.INTEGER, // uang diterima pegawai
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
 
       interest_amount: {
-        type: DataTypes.INTEGER, // total bunga
+        type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: 0,
       },
 
       interest_rate: {
-        type: DataTypes.FLOAT, // persen (5 = 5%)
+        type: DataTypes.FLOAT,
         allowNull: false,
         defaultValue: 0,
       },
 
-      // 🔥 TOTAL (principal + bunga)
+      // 🔥 TOTAL
       total_amount: {
         type: DataTypes.INTEGER,
         allowNull: false,
+        defaultValue: 0,
       },
 
       remaining_amount: {
         type: DataTypes.INTEGER,
         allowNull: false,
+        defaultValue: 0,
       },
 
       // 🔥 CICILAN
       tenor: {
-        type: DataTypes.INTEGER, // jumlah bulan / minggu
+        type: DataTypes.INTEGER,
         allowNull: false,
+        defaultValue: 0,
       },
 
       installment: {
-        type: DataTypes.INTEGER, // cicilan per periode
+        type: DataTypes.INTEGER,
         allowNull: false,
+        defaultValue: 0,
       },
 
       type: {
-        type: DataTypes.STRING, // monthly / weekly
+        type: DataTypes.STRING,
         allowNull: false,
         defaultValue: "monthly",
       },
 
+      // 🔥 STATUS FLOW (UPDATED)
       status: {
-        type: DataTypes.STRING, // ongoing / paid
+        type: DataTypes.STRING,
         allowNull: false,
-        defaultValue: "ongoing",
+        defaultValue: "pending_manager",
       },
 
-      // 🔥 OPTIONAL PRO
+      // 🔥 APPROVAL TRACKING (NEW)
+      approved_by_manager: {
+        type: DataTypes.INTEGER,
+      },
+
+      approved_by_owner: {
+        type: DataTypes.INTEGER,
+      },
+
+      approved_at_manager: {
+        type: DataTypes.DATE,
+      },
+
+      approved_at_owner: {
+        type: DataTypes.DATE,
+      },
+
+      // 🔥 DISBURSEMENT
       disbursed_at: {
         type: DataTypes.DATE,
       },
@@ -82,10 +105,21 @@ module.exports = (sequelize, DataTypes) => {
       due_date: {
         type: DataTypes.DATE,
       },
+
+      // 🔥 DOCUMENTS (NEW)
+      loan_agreement: {
+        type: DataTypes.TEXT, // URL PDF
+      },
+
+      disbursement_proof: {
+        type: DataTypes.TEXT,
+      },
     },
     {
       sequelize,
       modelName: "Loan",
+      tableName: "Loans", // 🔥 penting buat match Supabase
+      timestamps: true, // createdAt & updatedAt
     },
   );
 

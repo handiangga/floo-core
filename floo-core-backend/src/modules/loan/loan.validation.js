@@ -1,22 +1,33 @@
 const Joi = require("joi");
 
-// 🔥 CREATE (FINAL - BACKEND SOURCE OF TRUTH)
+// 🔥 CREATE LOAN (LEAN & SAFE)
 const createLoanSchema = Joi.object({
-  employee_id: Joi.number().required(),
-  amount: Joi.number().min(1).required(),
-  interest_rate: Joi.number().min(0).max(100).optional(),
+  employee_id: Joi.number().integer().positive().required(),
 
-  tenor: Joi.number().min(1).required(), // ✅ TAMBAH INI
+  principal_amount: Joi.number().integer().min(1).required(),
+
+  interest_rate: Joi.number()
+    .min(0)
+    .max(50) // 🔥 lebih realistis
+    .default(0),
+
+  tenor: Joi.number()
+    .integer()
+    .min(1)
+    .max(24) // 🔥 biar gak ngawur
+    .required(),
+
+  type: Joi.string().valid("monthly", "weekly").default("monthly"),
 });
 
-// 🔥 UPDATE (LOCK CORE FIELD)
+// 🔥 UPDATE (STRICT)
 const updateLoanSchema = Joi.object({
-  interest_rate: Joi.number().min(0).max(100).optional(),
+  interest_rate: Joi.number().min(0).max(50),
 }).min(1);
 
-// 🔥 PARAM ID
+// 🔥 PARAM
 const loanIdParam = Joi.object({
-  id: Joi.number().required(),
+  id: Joi.number().integer().positive().required(),
 });
 
 module.exports = {
