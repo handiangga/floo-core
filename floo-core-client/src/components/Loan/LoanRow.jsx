@@ -4,13 +4,51 @@ import { formatRupiah } from "../../utils/format";
 export default function LoanRow({ item, navigate, onDelete }) {
   const total = Number(item.total_amount) || 0;
   const remaining = Number(item.remaining_amount) || 0;
+  const status = item.status;
 
+  // ================= STATUS =================
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "pending_manager":
+        return "bg-yellow-100 text-yellow-600";
+      case "pending_owner":
+        return "bg-orange-100 text-orange-600";
+      case "ongoing":
+        return "bg-blue-100 text-blue-600";
+      case "completed":
+        return "bg-green-100 text-green-600";
+      default:
+        return "bg-gray-100 text-gray-600";
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case "pending_manager":
+        return "Pending Manager";
+      case "pending_owner":
+        return "Pending Owner";
+      case "ongoing":
+        return "Aktif";
+      case "completed":
+        return "Lunas";
+      default:
+        return status;
+    }
+  };
+
+  // ================= PROGRESS =================
   const progress =
-    total > 0 ? Math.round(((total - remaining) / total) * 100) : 0;
+    status === "pending_manager" || status === "pending_owner"
+      ? 0
+      : total > 0
+        ? Math.round(((total - remaining) / total) * 100)
+        : 0;
 
-  const isLunas = remaining === 0;
-  const canDelete = remaining === total || isLunas;
+  // ================= DELETE RULE =================
+  const canDelete = status === "pending_manager" || status === "pending_owner";
 
+  // ================= EMP BADGE =================
   const getBadge = (pos) => {
     if (pos === "penjahit") return "bg-green-100 text-green-600";
     if (pos === "staff") return "bg-blue-100 text-blue-600";
@@ -34,7 +72,7 @@ export default function LoanRow({ item, navigate, onDelete }) {
 
       {/* SISA */}
       <td className="p-4 text-red-500 font-medium">
-        {remaining === 0 ? "-" : formatRupiah(remaining)}
+        {status === "completed" ? "-" : formatRupiah(remaining)}
       </td>
 
       {/* PROGRESS */}
@@ -57,13 +95,9 @@ export default function LoanRow({ item, navigate, onDelete }) {
       {/* STATUS */}
       <td className="p-4">
         <span
-          className={`px-3 py-1 text-xs rounded-full ${
-            isLunas
-              ? "bg-green-100 text-green-600"
-              : "bg-yellow-100 text-yellow-600"
-          }`}
+          className={`px-3 py-1 text-xs rounded-full ${getStatusBadge(status)}`}
         >
-          {isLunas ? "Lunas" : "Aktif"}
+          {getStatusLabel(status)}
         </span>
       </td>
 
@@ -80,7 +114,7 @@ export default function LoanRow({ item, navigate, onDelete }) {
 
           {/* DELETE */}
           <button
-            onClick={() => onDelete(item)} // 🔥 FIX DI SINI
+            onClick={() => onDelete(item)}
             disabled={!canDelete}
             className={`p-2 rounded-lg ${
               canDelete
