@@ -13,40 +13,31 @@ export default function DetailLoan() {
   const [loan, setLoan] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [payLoading, setPayLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const [payAmount, setPayAmount] = useState("");
   const [proof, setProof] = useState(null);
   const [preview, setPreview] = useState(null);
-
-  // ================= UTIL =================
-  const parseNumber = (val) => Number(val.toString().replace(/\D/g, "")) || 0;
 
   // ================= FETCH =================
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      // 🔥 ambil loan dulu (WAJIB)
       const loanRes = await api.get(`/loans/${id}`);
       setLoan(loanRes.data.data);
 
-      // 🔥 ambil transaksi (OPTIONAL)
-      try {
-        const trxRes = await api.get(`/transactions?loan_id=${id}`);
-
-        setTransactions(trxRes.data?.data?.data || trxRes.data?.data || []);
-      } catch (trxErr) {
-        console.warn("Transaction error:", trxErr);
-        setTransactions([]);
-      }
+      // 🔥 lazy load transaksi
+      setTimeout(async () => {
+        try {
+          const trxRes = await api.get(`/transactions?loan_id=${id}`);
+          setTransactions(trxRes.data?.data?.data || []);
+        } catch {
+          setTransactions([]);
+        }
+      }, 0);
     } catch (err) {
-      console.error(err);
-      Swal.fire(
-        "Error",
-        err.response?.data?.message || err.message || "Gagal ambil loan",
-        "error",
-      );
+      Swal.fire("Error", err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -56,71 +47,123 @@ export default function DetailLoan() {
     fetchData();
   }, [id]);
 
-  // ================= STATE DERIVED =================
+  // ================= DERIVED =================
   const progress =
     loan && loan.total_amount > 0
       ? ((loan.total_amount - loan.remaining_amount) / loan.total_amount) * 100
       : 0;
 
-  const isLunas = loan?.status === "completed";
-
   const isPending =
     loan?.status === "pending_manager" || loan?.status === "pending_owner";
 
+  const isOngoing = loan?.status === "ongoing";
+  const isCompleted = loan?.status === "completed";
+
+  // ================= STATUS UI =================
+  const getStatusBadge = () => {
+    switch (loan.status) {
+      case "pending_manager":
+        return "bg-yellow-100 text-yellow-600";
+      case "pending_owner":
+        return "bg-orange-100 text-orange-600";
+      case "ongoing":
+        return "bg-blue-100 text-blue-600";
+      case "completed":
+        return "bg-green-100 text-green-600";
+      default:
+        return "bg-gray-100 text-gray-600";
+    }
+  };
+
+  // ================= APPROVAL =================
+  const handleApproveManager = async () => {
+    const confirm = await Swal.fire({
+      title: "Approve Manager?",
+      icon: "question",
+      showCancelButton: true,
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setActionLoading(true);
+
+      await api.post(`/loans/${id}/approve-manager`);
+
+      Swal.fire("Success", "Approved by Manager", "success");
+      fetchData();
+    } catch (err) {
+      Swal.fire("Error", err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApproveOwner = async () => {
+    const confirm = await Swal.fire({
+      title: "Approve Owner & Cairkan?",
+      icon: "question",
+      showCancelButton: true,
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    try {
+      setActionLoading(true);
+
+      await api.post(`/loans/${id}/approve-owner`);
+
+      Swal.fire("Success", "Loan disetujui & dicairkan", "success");
+      fetchData();
+    } catch (err) {
+      Swal.fire("Error", err.message, "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // ================= PAYMENT =================
+  const parseNumber = (val) => Number(val.toString().replace(/\D/g, "")) || 0;
+
   const handlePay = async () => {
     try {
       const amount = parseNumber(payAmount);
 
       if (!amount) return Swal.fire("Error", "Isi nominal", "warning");
-
       if (!proof) return Swal.fire("Error", "Upload bukti", "warning");
 
-      if (amount > loan.remaining_amount) {
-        return Swal.fire("Error", "Melebihi sisa pinjaman", "warning");
-      }
-
       const confirm = await Swal.fire({
-        title: "Konfirmasi",
-        text: `Bayar ${formatRupiah(amount)} ?`,
-        icon: "question",
+        title: "Bayar?",
+        text: formatRupiah(amount),
         showCancelButton: true,
       });
 
       if (!confirm.isConfirmed) return;
 
-      setPayLoading(true);
+      setActionLoading(true);
 
-      // 🔥 upload bukti
       const proofUrl = await uploadToSupabase(proof, {
         bucket: "transaction",
         prefix: `loan-${id}`,
       });
 
-      // 🔥 kirim ke backend
       await api.post("/transactions", {
         loan_id: id,
         amount,
         proof: proofUrl,
       });
 
-      Swal.fire("Berhasil", "Pembayaran sukses", "success");
+      Swal.fire("Success", "Pembayaran berhasil", "success");
 
-      // reset
       setPayAmount("");
       setProof(null);
       setPreview(null);
 
       fetchData();
     } catch (err) {
-      console.error(err);
-      Swal.fire(
-        "Error",
-        err.response?.data?.message || err.message || "Gagal bayar",
-        "error",
-      );
+      Swal.fire("Error", err.message, "error");
     } finally {
-      setPayLoading(false);
+      setActionLoading(false);
     }
   };
 
@@ -135,135 +178,115 @@ export default function DetailLoan() {
 
   if (!loan) return <Layout>Data tidak ditemukan</Layout>;
 
-  // ================= RENDER =================
+  // ================= UI =================
   return (
     <Layout>
       {/* HEADER */}
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={() => navigate("/loans")}
-          className="px-3 py-1 bg-gray-200 rounded-lg hover:bg-gray-300"
-        >
-          ← Kembali
-        </button>
-
+      <div className="flex justify-between items-center mb-6">
         <div>
+          <button onClick={() => navigate("/loans")} className="text-sm mb-1">
+            ← Kembali
+          </button>
+
           <h1 className="text-2xl font-bold">Loan Detail</h1>
-          <p className="text-gray-500 text-sm">
-            {loan.Employee?.name} ({loan.Employee?.position})
-          </p>
+          <p className="text-gray-500 text-sm">{loan.Employee?.name}</p>
         </div>
+
+        <span className={`px-3 py-1 text-xs rounded-full ${getStatusBadge()}`}>
+          {loan.status.replace("_", " ")}
+        </span>
       </div>
 
-      {/* CARD */}
-      <div className="bg-white rounded-3xl shadow-lg p-6 mb-6 border space-y-5">
+      {/* INFO */}
+      <div className="bg-white p-6 rounded-3xl shadow space-y-4">
         <div className="grid grid-cols-3 gap-4">
           <Stat label="Total" value={loan.total_amount} />
           <Stat label="Sisa" value={loan.remaining_amount} red />
           <Stat label="Cicilan" value={loan.installment} />
         </div>
 
-        {/* PROGRESS */}
-        <div>
-          <div className="w-full bg-gray-200 h-3 rounded-full">
-            <div
-              className="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full"
-              style={{ width: `${progress}%` }}
-            />
+        <div className="text-sm text-gray-500 grid grid-cols-3 gap-4">
+          <div>
+            Cair:
+            <br />
+            {loan.disbursed_at
+              ? new Date(loan.disbursed_at).toLocaleDateString("id-ID")
+              : "-"}
           </div>
-          <p className="text-xs mt-1">{progress.toFixed(0)}% selesai</p>
+          <div>
+            Jatuh Tempo:
+            <br />
+            {loan.due_date
+              ? new Date(loan.due_date).toLocaleDateString("id-ID")
+              : "-"}
+          </div>
+          <div>Status: {loan.status}</div>
         </div>
 
-        {/* DETAIL */}
-        <div className="bg-gray-50 p-4 rounded-xl flex justify-between">
-          <div>
-            <p className="text-gray-500 text-sm">Pokok</p>
-            <p className="font-semibold">
-              {formatRupiah(loan.principal_amount)}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-gray-500 text-sm">
-              Bunga ({loan.interest_rate}%)
-            </p>
-            <p className="font-semibold">
-              {formatRupiah(loan.interest_amount)}
-            </p>
-          </div>
+        {/* PROGRESS */}
+        <div className="w-full bg-gray-200 h-3 rounded-full">
+          <div
+            className="bg-green-500 h-3 rounded-full"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       </div>
 
+      {/* APPROVAL */}
+      {loan.status === "pending_manager" && (
+        <button
+          onClick={handleApproveManager}
+          disabled={actionLoading}
+          className="mt-4 w-full bg-yellow-500 text-white py-3 rounded-xl"
+        >
+          Approve Manager
+        </button>
+      )}
+
+      {loan.status === "pending_owner" && (
+        <button
+          onClick={handleApproveOwner}
+          disabled={actionLoading}
+          className="mt-4 w-full bg-orange-500 text-white py-3 rounded-xl"
+        >
+          Approve Owner & Cairkan
+        </button>
+      )}
+
+      {/* EMPTY STATE */}
+      {isPending && (
+        <div className="bg-yellow-50 p-4 mt-4 rounded-xl text-yellow-600">
+          Menunggu approval sebelum bisa dibayar
+        </div>
+      )}
+
       {/* PAYMENT */}
-      {!isLunas && !isPending && (
-        <div className="bg-white rounded-3xl shadow-lg p-6 mb-6 border space-y-4">
-          <h2 className="font-semibold text-lg">Bayar Cicilan</h2>
+      {isOngoing && (
+        <div className="bg-white p-6 mt-6 rounded-3xl shadow space-y-4">
+          <h2 className="font-semibold">Bayar Cicilan</h2>
 
-          <div className="flex gap-2">
-            <input
-              value={payAmount}
-              onChange={(e) => {
-                const raw = parseNumber(e.target.value);
-                setPayAmount(raw ? raw.toLocaleString("id-ID") : "");
-              }}
-              className="border px-4 py-3 rounded-xl w-full text-lg"
-              placeholder="0"
-            />
-
-            <button
-              onClick={() =>
-                setPayAmount(loan.installment.toLocaleString("id-ID"))
-              }
-              className="bg-gray-200 px-4 rounded-xl"
-            >
-              Cicilan
-            </button>
-
-            <button
-              onClick={() =>
-                setPayAmount(loan.remaining_amount.toLocaleString("id-ID"))
-              }
-              className="bg-green-500 text-white px-4 rounded-xl"
-            >
-              Lunas
-            </button>
-          </div>
-
-          {/* UPLOAD */}
-          <label className="border-2 border-dashed p-6 rounded-xl text-center cursor-pointer hover:bg-gray-50 block">
-            <input
-              type="file"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                setProof(file);
-                setPreview(URL.createObjectURL(file));
-              }}
-            />
-
-            {!preview ? (
-              <p className="text-gray-400">
-                Klik untuk upload bukti pembayaran
-              </p>
-            ) : (
-              <img src={preview} className="w-32 mx-auto rounded-xl shadow" />
-            )}
-          </label>
+          <input
+            value={payAmount}
+            onChange={(e) => {
+              const raw = parseNumber(e.target.value);
+              setPayAmount(raw ? raw.toLocaleString("id-ID") : "");
+            }}
+            className="border px-4 py-3 rounded-xl w-full"
+            placeholder="0"
+          />
 
           <button
-            disabled={payLoading}
             onClick={handlePay}
-            className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+            disabled={actionLoading}
+            className="w-full bg-blue-500 text-white py-3 rounded-xl"
           >
-            {payLoading ? "Memproses..." : "Bayar Sekarang"}
+            Bayar
           </button>
         </div>
       )}
 
       {/* HISTORY */}
-      <div className="bg-white rounded-3xl shadow-lg border overflow-hidden">
+      <div className="bg-white mt-6 rounded-3xl shadow">
         <div className="p-4 font-semibold border-b">Riwayat Pembayaran</div>
 
         {transactions.length === 0 ? (
@@ -271,54 +294,22 @@ export default function DetailLoan() {
             Belum ada pembayaran
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="p-4 text-left">Tanggal</th>
-                <th className="p-4 text-left">Amount</th>
-                <th className="p-4 text-left">Sisa</th>
-                <th className="p-4 text-left">Bukti</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {transactions.map((trx) => (
-                <tr key={trx.id} className="border-t hover:bg-gray-50">
-                  <td className="p-4">
-                    {new Date(trx.createdAt).toLocaleDateString("id-ID")}
-                  </td>
-
-                  <td className="p-4 text-green-600 font-semibold">
-                    + {formatRupiah(trx.amount)}
-                  </td>
-
-                  <td className="p-4">{formatRupiah(trx.remaining_after)}</td>
-
-                  <td className="p-4">
-                    {trx.proof && (
-                      <img
-                        src={trx.proof}
-                        className="w-10 rounded cursor-pointer hover:scale-110 transition"
-                        onClick={() => Swal.fire({ imageUrl: trx.proof })}
-                      />
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          transactions.map((trx) => (
+            <div key={trx.id} className="p-4 border-t">
+              + {formatRupiah(trx.amount)}
+            </div>
+          ))
         )}
       </div>
     </Layout>
   );
 }
 
-// ================= COMPONENT =================
 function Stat({ label, value, red }) {
   return (
     <div>
       <p className="text-xs text-gray-500">{label}</p>
-      <p className={`text-lg font-bold ${red ? "text-red-500" : ""}`}>
+      <p className={`font-bold ${red ? "text-red-500" : ""}`}>
         {formatRupiah(value)}
       </p>
     </div>
