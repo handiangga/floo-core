@@ -19,21 +19,34 @@ export default function DetailLoan() {
   const [proof, setProof] = useState(null);
   const [preview, setPreview] = useState(null);
 
+  // ================= UTIL =================
   const parseNumber = (val) => Number(val.toString().replace(/\D/g, "")) || 0;
 
+  // ================= FETCH =================
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      const [loanRes, trxRes] = await Promise.all([
-        api.get(`/loans/${id}`),
-        api.get(`/transactions?loan_id=${id}`),
-      ]);
-
+      // 🔥 ambil loan dulu (WAJIB)
+      const loanRes = await api.get(`/loans/${id}`);
       setLoan(loanRes.data.data);
-      setTransactions(trxRes.data.data.data || []);
+
+      // 🔥 ambil transaksi (OPTIONAL)
+      try {
+        const trxRes = await api.get(`/transactions?loan_id=${id}`);
+
+        setTransactions(trxRes.data?.data?.data || trxRes.data?.data || []);
+      } catch (trxErr) {
+        console.warn("Transaction error:", trxErr);
+        setTransactions([]);
+      }
     } catch (err) {
-      Swal.fire("Error", "Gagal ambil data", "error");
+      console.error(err);
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || err.message || "Gagal ambil loan",
+        "error",
+      );
     } finally {
       setLoading(false);
     }
@@ -43,18 +56,29 @@ export default function DetailLoan() {
     fetchData();
   }, [id]);
 
-  const progress = loan
-    ? ((loan.total_amount - loan.remaining_amount) / loan.total_amount) * 100
-    : 0;
+  // ================= STATE DERIVED =================
+  const progress =
+    loan && loan.total_amount > 0
+      ? ((loan.total_amount - loan.remaining_amount) / loan.total_amount) * 100
+      : 0;
 
-  const isLunas = loan?.remaining_amount === 0;
+  const isLunas = loan?.status === "completed";
 
+  const isPending =
+    loan?.status === "pending_manager" || loan?.status === "pending_owner";
+
+  // ================= PAYMENT =================
   const handlePay = async () => {
     try {
       const amount = parseNumber(payAmount);
 
       if (!amount) return Swal.fire("Error", "Isi nominal", "warning");
+
       if (!proof) return Swal.fire("Error", "Upload bukti", "warning");
+
+      if (amount > loan.remaining_amount) {
+        return Swal.fire("Error", "Melebihi sisa pinjaman", "warning");
+      }
 
       const confirm = await Swal.fire({
         title: "Konfirmasi",
@@ -67,7 +91,7 @@ export default function DetailLoan() {
 
       setPayLoading(true);
 
-      // 🔥 upload ke supabase
+      // 🔥 upload bukti
       const proofUrl = await uploadToSupabase(proof, {
         bucket: "transaction",
         prefix: `loan-${id}`,
@@ -82,18 +106,25 @@ export default function DetailLoan() {
 
       Swal.fire("Berhasil", "Pembayaran sukses", "success");
 
+      // reset
       setPayAmount("");
       setProof(null);
       setPreview(null);
 
       fetchData();
     } catch (err) {
-      Swal.fire("Error", err.message || "Gagal bayar", "error");
+      console.error(err);
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || err.message || "Gagal bayar",
+        "error",
+      );
     } finally {
       setPayLoading(false);
     }
   };
 
+  // ================= LOADING =================
   if (loading) {
     return (
       <Layout>
@@ -104,6 +135,7 @@ export default function DetailLoan() {
 
   if (!loan) return <Layout>Data tidak ditemukan</Layout>;
 
+  // ================= RENDER =================
   return (
     <Layout>
       {/* HEADER */}
@@ -131,6 +163,7 @@ export default function DetailLoan() {
           <Stat label="Cicilan" value={loan.installment} />
         </div>
 
+        {/* PROGRESS */}
         <div>
           <div className="w-full bg-gray-200 h-3 rounded-full">
             <div
@@ -141,6 +174,7 @@ export default function DetailLoan() {
           <p className="text-xs mt-1">{progress.toFixed(0)}% selesai</p>
         </div>
 
+        {/* DETAIL */}
         <div className="bg-gray-50 p-4 rounded-xl flex justify-between">
           <div>
             <p className="text-gray-500 text-sm">Pokok</p>
@@ -161,7 +195,7 @@ export default function DetailLoan() {
       </div>
 
       {/* PAYMENT */}
-      {!isLunas && (
+      {!isLunas && !isPending && (
         <div className="bg-white rounded-3xl shadow-lg p-6 mb-6 border space-y-4">
           <h2 className="font-semibold text-lg">Bayar Cicilan</h2>
 
@@ -279,6 +313,7 @@ export default function DetailLoan() {
   );
 }
 
+// ================= COMPONENT =================
 function Stat({ label, value, red }) {
   return (
     <div>

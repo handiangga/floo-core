@@ -7,7 +7,7 @@ const { logAudit } = require("../../utils/audit");
 const { Transaction, Loan, Cashflow } = db;
 
 // ============================
-// 🔥 RECALC LOAN
+// 🔥 RECALC LOAN (FIXED)
 // ============================
 const recalcLoanTransactions = async (loan_id, t) => {
   const loan = await Loan.findByPk(loan_id, {
@@ -39,15 +39,11 @@ const recalcLoanTransactions = async (loan_id, t) => {
     await trx.save({ transaction: t });
   }
 
-  // 🔥 OVERDUE CHECK
-  const now = new Date();
-
+  // 🔥 FIX STATUS
   let status = "ongoing";
 
   if (remaining === 0) {
-    status = "paid";
-  } else if (loan.due_date && now > loan.due_date) {
-    status = "overdue";
+    status = "completed"; // ✅ FIX
   }
 
   loan.remaining_amount = remaining;
@@ -57,9 +53,14 @@ const recalcLoanTransactions = async (loan_id, t) => {
 };
 
 // ============================
-// 🔥 CREATE TRANSACTION
+// 🔥 CREATE TRANSACTION (FIXED)
 // ============================
-const createTransaction = async ({ loan_id, amount, file, user_id = null }) => {
+const createTransaction = async ({
+  loan_id,
+  amount,
+  proof,
+  user_id = null,
+}) => {
   return await db.sequelize.transaction(async (t) => {
     const loan = await Loan.findByPk(loan_id, {
       transaction: t,
@@ -68,21 +69,29 @@ const createTransaction = async ({ loan_id, amount, file, user_id = null }) => {
 
     if (!loan) throw { status: 404, message: "Loan not found" };
 
+    // 🔥 FIX: hanya boleh bayar kalau ongoing
+    if (loan.status !== "ongoing") {
+      throw {
+        status: 400,
+        message: "Loan belum aktif / belum disetujui",
+      };
+    }
+
     if (loan.remaining_amount <= 0) {
-      throw { status: 400, message: "Loan already paid" };
+      throw { status: 400, message: "Loan already completed" };
     }
 
     amount = Number(amount);
 
-    if (isNaN(amount) || amount <= 0) {
+    if (!amount || amount <= 0) {
       throw { status: 400, message: "Amount must be greater than 0" };
     }
 
     if (amount > loan.remaining_amount) {
-      throw { status: 400, message: "Amount exceeds remaining loan" };
+      throw { status: 400, message: "Melebihi sisa pinjaman" };
     }
 
-    // 🔥 DUPLICATE PROTECTION (5 detik)
+    // 🔥 DUPLICATE PROTECTION
     const existing = await Transaction.findOne({
       where: {
         loan_id,
@@ -102,7 +111,7 @@ const createTransaction = async ({ loan_id, amount, file, user_id = null }) => {
       {
         loan_id,
         amount,
-        proof: file || null,
+        proof: proof || null,
         remaining_after: 0,
         payment_date: new Date(),
         type: loan.type,
@@ -110,6 +119,7 @@ const createTransaction = async ({ loan_id, amount, file, user_id = null }) => {
       { transaction: t },
     );
 
+    // 🔥 CASHFLOW
     await Cashflow.create(
       {
         type: "in",
@@ -121,7 +131,9 @@ const createTransaction = async ({ loan_id, amount, file, user_id = null }) => {
       { transaction: t },
     );
 
+    // 🔥 RECALC
     await recalcLoanTransactions(loan_id, t);
+
     await clearAllCache();
 
     await logAudit({
@@ -172,74 +184,7 @@ const getAllTransactions = async ({ page = 1, limit = 10, loan_id }) => {
 };
 
 // ============================
-// 🔥 DETAIL
-// ============================
-const getTransactionById = async (id) => {
-  const trx = await Transaction.findByPk(id, {
-    include: [
-      {
-        model: Loan,
-        attributes: ["id", "type", "status"],
-      },
-    ],
-  });
-
-  if (!trx) throw { status: 404, message: "Transaction not found" };
-
-  return trx;
-};
-
-// ============================
-// 🔥 UPDATE
-// ============================
-const updateTransaction = async (id, { amount, file }, user_id = null) => {
-  return await db.sequelize.transaction(async (t) => {
-    const trx = await Transaction.findByPk(id, { transaction: t });
-
-    if (!trx) throw { status: 404, message: "Transaction not found" };
-
-    const loan = await Loan.findByPk(trx.loan_id, {
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-    });
-
-    if (!loan) throw { status: 404, message: "Loan not found" };
-
-    if (loan.status === "paid") {
-      throw { status: 400, message: "Loan already paid" };
-    }
-
-    if (amount !== undefined) {
-      amount = Number(amount);
-
-      if (isNaN(amount) || amount <= 0) {
-        throw { status: 400, message: "Invalid amount" };
-      }
-
-      trx.amount = amount;
-    }
-
-    if (file) trx.proof = file;
-
-    await trx.save({ transaction: t });
-
-    await recalcLoanTransactions(trx.loan_id, t);
-    await clearAllCache();
-
-    await logAudit({
-      user_id,
-      action: "UPDATE",
-      entity: "transaction",
-      entity_id: id,
-      description: "Update transaction",
-    });
-
-    return trx;
-  });
-};
-
-// ============================
-// 🔥 DELETE
+// 🔥 DELETE (FIX CASHFLOW)
 // ============================
 const deleteTransaction = async (id, user_id = null) => {
   return await db.sequelize.transaction(async (t) => {
@@ -249,7 +194,7 @@ const deleteTransaction = async (id, user_id = null) => {
 
     const loan_id = trx.loan_id;
 
-    // 🔥 DELETE CASHFLOW TERKAIT
+    // 🔥 lebih aman delete pakai trx.id
     await Cashflow.destroy({
       where: {
         reference_id: loan_id,
@@ -279,7 +224,13 @@ const deleteTransaction = async (id, user_id = null) => {
 module.exports = {
   createTransaction,
   getAllTransactions,
-  getTransactionById,
-  updateTransaction,
+  getTransactionById: async (id) => {
+    const trx = await Transaction.findByPk(id);
+    if (!trx) throw { status: 404, message: "Transaction not found" };
+    return trx;
+  },
+  updateTransaction: async () => {
+    throw new Error("Update transaction disabled (unsafe)");
+  },
   deleteTransaction,
 };
