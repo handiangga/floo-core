@@ -17,6 +17,7 @@ export default function CreateLoan() {
 
   const INTEREST = 5;
 
+  // ================= FORMAT =================
   const formatRupiah = (num) => {
     if (!num) return "0";
     return new Intl.NumberFormat("id-ID").format(num);
@@ -26,6 +27,7 @@ export default function CreateLoan() {
     return Number(val.replace(/\D/g, "")) || 0;
   };
 
+  // ================= FETCH =================
   const fetchEmployees = async () => {
     try {
       const res = await api.get("/employees");
@@ -39,10 +41,12 @@ export default function CreateLoan() {
     fetchEmployees();
   }, []);
 
+  // ================= SELECTED EMP =================
   const emp = useMemo(() => {
     return employees.find((e) => e.id == employeeId);
   }, [employeeId, employees]);
 
+  // ================= SIMULATION =================
   const simulation = useMemo(() => {
     if (!emp || !amount || !tenor) return null;
 
@@ -56,30 +60,56 @@ export default function CreateLoan() {
 
     const installment = Math.ceil(total / tenor);
 
+    const dueDate = new Date();
+    dueDate.setMonth(dueDate.getMonth() + tenor);
+
     return {
       maxLoan,
       isWeekly,
       interestAmount,
       total,
       installment,
+      dueDate,
     };
   }, [emp, amount, tenor]);
 
   const isOverLimit = simulation && amount > simulation.maxLoan;
+
   const isOverInstallment =
     simulation && emp && simulation.installment > emp.salary * 0.5;
 
+  const isInvalid =
+    !employeeId ||
+    !amount ||
+    amount <= 0 ||
+    !tenor ||
+    tenor <= 0 ||
+    isOverLimit ||
+    isOverInstallment;
+
+  // ================= HANDLER =================
   const handleAmount = (val) => {
     const num = parseNumber(val);
     setAmount(num);
     setDisplay(formatRupiah(num));
   };
 
+  // ================= SUBMIT =================
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!employeeId || !amount || !tenor) {
-      return Swal.fire("Error", "Lengkapi data", "warning");
+    if (loading) return;
+
+    if (!employeeId) {
+      return Swal.fire("Error", "Pilih karyawan", "warning");
+    }
+
+    if (!amount || amount <= 0) {
+      return Swal.fire("Error", "Nominal tidak valid", "warning");
+    }
+
+    if (!tenor || tenor <= 0) {
+      return Swal.fire("Error", "Tenor tidak valid", "warning");
     }
 
     if (isOverLimit) {
@@ -95,12 +125,12 @@ export default function CreateLoan() {
 
       await api.post("/loans", {
         employee_id: employeeId,
-        amount,
+        principal_amount: amount, // 🔥 FIX UTAMA
         interest_rate: INTEREST,
         tenor,
       });
 
-      Swal.fire("Berhasil", "Loan dibuat", "success");
+      Swal.fire("Berhasil", "Pinjaman berhasil dibuat", "success");
       navigate("/loans");
     } catch (err) {
       Swal.fire(
@@ -113,6 +143,7 @@ export default function CreateLoan() {
     }
   };
 
+  // ================= RENDER =================
   return (
     <Layout>
       <div className="max-w-xl mx-auto space-y-6">
@@ -230,13 +261,17 @@ export default function CreateLoan() {
                 <p className="text-xs text-gray-400">
                   / {tenor} {simulation.isWeekly ? "minggu" : "bulan"}
                 </p>
+
+                <p className="text-xs text-gray-400 mt-1">
+                  Jatuh tempo: {simulation.dueDate.toLocaleDateString("id-ID")}
+                </p>
               </div>
             </div>
           )}
 
           {/* BUTTON */}
           <button
-            disabled={loading || isOverLimit || isOverInstallment}
+            disabled={loading || isInvalid}
             onClick={handleSubmit}
             className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50"
           >

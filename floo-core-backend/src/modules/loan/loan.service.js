@@ -4,14 +4,16 @@ const { Op } = require("sequelize");
 const { clearAllCache } = require("../../utils/cache");
 const { logAudit } = require("../../utils/audit");
 
-const { Loan, Employee, Transaction, Cashflow } = db;
+const { Loan, Employee, Cashflow } = db;
 
 // ============================
-// 🔥 CALCULATE LOAN
+// 🔥 CALCULATE LOAN (SSOT)
 // ============================
 const calculateLoan = (employee, principal, interest_rate = 0, tenorInput) => {
   const salary = Number(employee.salary || 0);
   const salaryType = employee.salary_type;
+
+  if (!salary) throw { status: 400, message: "Gaji tidak valid" };
 
   const maxInstallment = salary * 0.5;
 
@@ -19,51 +21,41 @@ const calculateLoan = (employee, principal, interest_rate = 0, tenorInput) => {
   let installment;
   let type;
 
+  // 🔥 RULE GLOBAL
+  if (principal > salary * 2) {
+    throw { status: 400, message: "Max pinjaman = 2x gaji" };
+  }
+
+  const interest = Math.round(principal * (interest_rate / 100));
+  const total = principal + interest;
+
   if (salaryType === "weekly") {
     type = "weekly";
     tenor = tenorInput || 4;
-
-    if (principal > salary * 2) {
-      throw { status: 400, message: "Max pinjaman = 2x gaji" };
-    }
-
-    const interest = Math.round(principal * (interest_rate / 100));
-    const total = principal + interest;
-
     installment = Math.ceil(total / tenor);
-
-    if (installment > maxInstallment) {
-      throw { status: 400, message: "Cicilan > 50% gaji" };
-    }
-
-    return { tenor, installment, type, interest, total };
-  }
-
-  if (salaryType === "monthly") {
+  } else if (salaryType === "monthly") {
     type = "monthly";
     tenor = tenorInput || 3;
-
-    if (principal > salary * 2) {
-      throw { status: 400, message: "Max pinjaman = 2x gaji" };
-    }
-
-    const interest = Math.round(principal * (interest_rate / 100));
-    const total = principal + interest;
-
     installment = Math.ceil(total / tenor);
-
-    if (installment > maxInstallment) {
-      throw { status: 400, message: "Cicilan > 50% gaji" };
-    }
-
-    return { tenor, installment, type, interest, total };
+  } else {
+    throw { status: 400, message: "Tipe gaji tidak valid" };
   }
 
-  throw { status: 400, message: "Tipe gaji tidak valid" };
+  if (installment > maxInstallment) {
+    throw { status: 400, message: "Cicilan > 50% gaji" };
+  }
+
+  return {
+    tenor,
+    installment,
+    type,
+    interest,
+    total,
+  };
 };
 
 // ============================
-// 🔥 CREATE LOAN
+// 🔥 CREATE LOAN (FIX TOTAL)
 // ============================
 const createLoan = async ({
   employee_id,
@@ -86,6 +78,7 @@ const createLoan = async ({
       throw { status: 400, message: "Amount must be greater than 0" };
     }
 
+    // 🔥 CEK LOAN AKTIF
     const existingLoan = await Loan.findOne({
       where: {
         employee_id,
@@ -104,20 +97,32 @@ const createLoan = async ({
       };
     }
 
+    // 🔥 HITUNG DI AWAL
     const result = calculateLoan(employee, principal, interest_rate, tenor);
 
+    const now = new Date();
+
+    let dueDate = new Date(now);
+    if (result.type === "monthly") {
+      dueDate.setMonth(dueDate.getMonth() + result.tenor);
+    } else {
+      dueDate.setDate(dueDate.getDate() + result.tenor * 7);
+    }
+
+    // 🔥 SIMPAN SUDAH VALID
     const loan = await Loan.create(
       {
         employee_id,
         principal_amount: principal,
         interest_amount: result.interest,
         interest_rate,
-        total_amount: 0,
-        remaining_amount: 0,
+        total_amount: result.total,
+        remaining_amount: result.total,
         tenor: result.tenor,
         installment: result.installment,
         type: result.type,
         status: "pending_manager",
+        due_date: dueDate,
       },
       { transaction: t },
     );
@@ -129,7 +134,7 @@ const createLoan = async ({
       action: "CREATE",
       entity: "loan",
       entity_id: loan.id,
-      description: `Create loan draft ${principal}`,
+      description: `Create loan ${principal}`,
     });
 
     return loan;
@@ -137,22 +142,19 @@ const createLoan = async ({
 };
 
 // ============================
-// 🔥 GET ALL LOANS (NO HANG)
+// 🔥 GET ALL
 // ============================
 const getAllLoans = async () => {
-  const loans = await Loan.findAll({
+  return await Loan.findAll({
     include: [
       {
         model: Employee,
         as: "Employee",
         attributes: ["id", "name", "position"],
-        required: false,
       },
     ],
     order: [["createdAt", "DESC"]],
   });
-
-  return loans;
 };
 
 // ============================
@@ -165,7 +167,6 @@ const getLoanById = async (id) => {
         model: Employee,
         as: "Employee",
         attributes: ["id", "name", "position"],
-        required: false,
       },
     ],
   });
@@ -176,7 +177,7 @@ const getLoanById = async (id) => {
 };
 
 // ============================
-// 🔥 UPDATE LOAN (SAFE)
+// 🔥 UPDATE LOAN
 // ============================
 const updateLoan = async (id, payload) => {
   const loan = await Loan.findByPk(id);
@@ -196,31 +197,40 @@ const updateLoan = async (id, payload) => {
 
   const result = calculateLoan(employee, principal, interest_rate, tenor);
 
+  let dueDate = new Date();
+  if (result.type === "monthly") {
+    dueDate.setMonth(dueDate.getMonth() + result.tenor);
+  } else {
+    dueDate.setDate(dueDate.getDate() + result.tenor * 7);
+  }
+
   await loan.update({
     principal_amount: principal,
     interest_amount: result.interest,
     interest_rate,
+    total_amount: result.total,
+    remaining_amount: result.total,
     tenor: result.tenor,
     installment: result.installment,
     type: result.type,
+    due_date: dueDate,
   });
 
   return loan;
 };
 
 // ============================
-// 🔥 DELETE LOAN (SAFE)
+// 🔥 DELETE LOAN
 // ============================
 const deleteLoan = async (id) => {
   const loan = await Loan.findByPk(id);
 
   if (!loan) throw { status: 404, message: "Loan not found" };
 
-  const isLunas = loan.remaining_amount === 0;
   const isPending =
     loan.status === "pending_manager" || loan.status === "pending_owner";
 
-  if (!isLunas && !isPending) {
+  if (!isPending) {
     throw {
       status: 400,
       message: "Loan tidak bisa dihapus (sudah berjalan)",
@@ -259,7 +269,7 @@ const approveByManager = async (loan_id, user_id) => {
 };
 
 // ============================
-// 🔥 APPROVE OWNER
+// 🔥 APPROVE OWNER (NO RE-CALC)
 // ============================
 const approveByOwner = async (loan_id, user_id) => {
   return await db.sequelize.transaction(async (t) => {
@@ -274,42 +284,14 @@ const approveByOwner = async (loan_id, user_id) => {
       throw { status: 400, message: "Invalid status" };
     }
 
-    const employee = await Employee.findByPk(loan.employee_id, {
-      transaction: t,
-    });
-
-    if (!employee) {
-      throw { status: 404, message: "Employee not found" };
-    }
-
-    const result = calculateLoan(
-      employee,
-      loan.principal_amount,
-      loan.interest_rate,
-      loan.tenor,
-    );
-
     const now = new Date();
-
-    let dueDate = new Date(now);
-    if (result.type === "monthly") {
-      dueDate.setMonth(dueDate.getMonth() + result.tenor);
-    } else {
-      dueDate.setDate(dueDate.getDate() + result.tenor * 7);
-    }
 
     await loan.update(
       {
-        interest_amount: result.interest,
-        total_amount: result.total,
-        remaining_amount: result.total,
-        installment: result.installment,
-        type: result.type,
         status: "ongoing",
         approved_by_owner: user_id,
         approved_at_owner: now,
         disbursed_at: now,
-        due_date: dueDate,
       },
       { transaction: t },
     );
@@ -317,7 +299,7 @@ const approveByOwner = async (loan_id, user_id) => {
     await Cashflow.create(
       {
         type: "out",
-        amount: result.total,
+        amount: loan.total_amount,
         source: "loan",
         reference_id: loan.id,
         note: "Pencairan pinjaman",
@@ -332,15 +314,13 @@ const approveByOwner = async (loan_id, user_id) => {
       action: "APPROVE",
       entity: "loan",
       entity_id: loan.id,
-      description: `Approve loan ${result.total}`,
+      description: `Approve loan ${loan.total_amount}`,
     });
 
     return loan;
   });
 };
 
-// ============================
-// 🔥 EXPORT
 // ============================
 module.exports = {
   createLoan,
