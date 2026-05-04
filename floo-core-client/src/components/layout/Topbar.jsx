@@ -1,8 +1,10 @@
 import { useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
+import { getUser } from "../../utils/auth"; // 🔥 ambil user
 
 export default function Topbar() {
   const location = useLocation();
+  const user = getUser(); // 🔥 ambil data user
 
   const getTitle = () => {
     if (location.pathname.includes("employees")) return "Employees";
@@ -40,6 +42,12 @@ export default function Topbar() {
     }, 800);
   };
 
+  // 🔥 format nama & role
+  const displayName = user?.name || "User";
+  const displayRole = user?.role
+    ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+    : "";
+
   return (
     <div className="h-16 bg-white/80 backdrop-blur border-b px-6 flex items-center justify-between shadow-sm">
       {/* TITLE */}
@@ -47,7 +55,13 @@ export default function Topbar() {
 
       {/* RIGHT */}
       <div className="flex items-center gap-4">
-        <div className="text-sm text-gray-500 hidden sm:block">Hi, Admin</div>
+        {/* 🔥 DINAMIS */}
+        <div className="text-sm text-gray-500 hidden sm:block">
+          Hi, {displayName}
+          {displayRole && (
+            <span className="ml-2 text-xs text-gray-400">({displayRole})</span>
+          )}
+        </div>
 
         {/* LOGOUT */}
         <button
