@@ -1,6 +1,6 @@
 const express = require("express");
 const controller = require("./employee.controller");
-const { upload, processImage } = require("../../middlewares/upload"); // ✅ FIX
+const { upload, processUpload } = require("../../middlewares/upload"); // ✅ FIX
 const { verifyToken } = require("../../middlewares/auth.middleware");
 const rbac = require("../../middlewares/rbac.middleware");
 
@@ -21,7 +21,7 @@ router.post(
     { name: "photo", maxCount: 1 },
     { name: "ktp_photo", maxCount: 1 },
   ]),
-  processImage, // 🔥 INI WAJIB
+  processUpload, // 🔥 INI WAJIB
   controller.createEmployee,
 );
 
@@ -34,7 +34,7 @@ router.put(
     { name: "photo", maxCount: 1 },
     { name: "ktp_photo", maxCount: 1 },
   ]),
-  processImage, // 🔥 INI WAJIB
+  processUpload, // 🔥 INI WAJIB
   controller.updateEmployee,
 );
 
