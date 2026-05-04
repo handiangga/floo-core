@@ -97,8 +97,18 @@ export default function DetailLoan() {
 
       await api.post(`/loans/${id}/approve-manager`);
 
-      Swal.fire("Success", "Approved by Manager", "success");
-      fetchData();
+      Swal.fire({
+        icon: "success",
+        title: "Approved",
+        text: "Loan lanjut ke owner",
+        timer: 1200,
+        showConfirmButton: false,
+      });
+
+      // 🔥 FIX: JANGAN FETCH LAGI
+      setTimeout(() => {
+        navigate("/loans");
+      }, 1000);
     } catch (err) {
       Swal.fire("Error", err.response?.data?.message || err.message, "error");
     } finally {
@@ -120,8 +130,17 @@ export default function DetailLoan() {
 
       await api.post(`/loans/${id}/approve-owner`);
 
-      Swal.fire("Success", "Loan disetujui & dicairkan", "success");
-      fetchData();
+      Swal.fire({
+        icon: "success",
+        title: "Loan dicairkan",
+        timer: 1200,
+        showConfirmButton: false,
+      });
+
+      // 🔥 FIX: redirect juga
+      setTimeout(() => {
+        navigate("/loans");
+      }, 1000);
     } catch (err) {
       Swal.fire("Error", err.response?.data?.message || err.message, "error");
     } finally {
