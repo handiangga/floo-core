@@ -1,6 +1,6 @@
 import { useState } from "react";
 import api from "../../api/api";
-import { setToken } from "../../utils/auth";
+import { setToken, setUser } from "../../utils/auth";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 
@@ -22,7 +22,11 @@ export default function Login() {
     try {
       const res = await api.post("/auth/login", form);
 
-      setToken(res.data.data.token);
+      const data = res.data.data;
+
+      // 🔥 SIMPAN TOKEN + USER
+      setToken(data.token);
+      setUser(data.user);
 
       Swal.fire({
         icon: "success",
@@ -53,7 +57,7 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleLogin} className="space-y-5">
-          {/* Email */}
+          {/* EMAIL */}
           <div>
             <label className="text-white/80 text-sm">Email</label>
             <input
@@ -65,7 +69,7 @@ export default function Login() {
             />
           </div>
 
-          {/* Password */}
+          {/* PASSWORD */}
           <div>
             <label className="text-white/80 text-sm">Password</label>
             <div className="relative">
@@ -86,7 +90,7 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Button */}
+          {/* BUTTON */}
           <button
             type="submit"
             disabled={loading}
