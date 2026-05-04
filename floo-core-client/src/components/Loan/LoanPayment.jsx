@@ -1,4 +1,5 @@
 import { formatRupiah } from "../../utils/format";
+import Swal from "sweetalert2";
 
 export default function LoanPayment({
   loan,
@@ -12,6 +13,26 @@ export default function LoanPayment({
   preview,
   setPreview,
 }) {
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // 🔥 validasi file harus gambar
+    if (!file.type.startsWith("image/")) {
+      Swal.fire("Error", "File harus berupa gambar", "error");
+      return;
+    }
+
+    // 🔥 validasi ukuran max 2MB
+    if (file.size > 2 * 1024 * 1024) {
+      Swal.fire("Error", "Ukuran max 2MB", "error");
+      return;
+    }
+
+    setProof(file);
+    setPreview(URL.createObjectURL(file));
+  };
+
   return (
     <div className="bg-white p-6 mt-6 rounded-3xl shadow space-y-4">
       <h2 className="font-semibold text-lg">Bayar Cicilan</h2>
@@ -35,45 +56,53 @@ export default function LoanPayment({
         </button>
       </div>
 
-      {/* INPUT */}
-      <input
-        value={payAmount}
-        onChange={(e) => {
-          const raw = parseNumber(e.target.value);
-          setPayAmount(raw ? raw.toLocaleString("id-ID") : "");
-        }}
-        className="border px-4 py-3 rounded-xl w-full text-lg"
-        placeholder="Masukkan nominal"
-      />
-
-      {/* UPLOAD */}
-      <label className="border-2 border-dashed p-4 rounded-xl text-center cursor-pointer hover:bg-gray-50">
+      {/* INPUT + UPLOAD */}
+      <div className="space-y-3">
         <input
-          type="file"
-          className="hidden"
+          value={payAmount}
           onChange={(e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            setProof(file);
-            setPreview(URL.createObjectURL(file));
+            const raw = parseNumber(e.target.value);
+            setPayAmount(raw ? raw.toLocaleString("id-ID") : "");
           }}
+          className="border px-4 py-3 rounded-xl w-full text-lg"
+          placeholder="Masukkan nominal"
         />
 
-        {!preview ? (
-          "Upload bukti pembayaran"
-        ) : (
-          <img src={preview} className="w-24 mx-auto rounded" />
-        )}
-      </label>
+        {/* UPLOAD */}
+        <label className="block border-2 border-dashed p-4 rounded-xl text-center cursor-pointer hover:bg-gray-50 transition">
+          <input
+            type="file"
+            className="hidden"
+            accept="image/*"
+            onChange={handleFileChange}
+          />
+
+          {!preview ? (
+            <span className="text-red-500 text-sm">
+              * Upload bukti pembayaran (wajib)
+            </span>
+          ) : (
+            <div className="space-y-2">
+              <img src={preview} className="w-24 mx-auto rounded" />
+              <p className="text-green-600 text-xs">✓ Bukti berhasil dipilih</p>
+            </div>
+          )}
+        </label>
+      </div>
 
       {/* BUTTON */}
       <button
         onClick={handlePay}
-        disabled={actionLoading}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold"
+        disabled={actionLoading || !proof}
+        className={`w-full py-3 rounded-xl font-semibold text-white transition
+          ${
+            !proof
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+          }
+        `}
       >
-        Bayar Sekarang
+        {actionLoading ? "Memproses..." : "Bayar Sekarang"}
       </button>
     </div>
   );

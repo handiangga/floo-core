@@ -5,9 +5,11 @@ const { verifyToken } = require("../../middlewares/auth.middleware");
 const rbac = require("../../middlewares/rbac.middleware");
 const cache = require("../../middlewares/cache.middleware");
 
-// 🔥 VALIDATION
-const { transactionIdParam } = require("./transaction.validation");
+// ✅ upload middleware
+const { upload, processImage } = require("../../middlewares/upload");
 
+// validation
+const { transactionIdParam } = require("./transaction.validation");
 const validate = require("../../middlewares/validate.middleware");
 
 const router = express.Router();
@@ -36,12 +38,21 @@ router.get(
 );
 
 // ============================
-// 🔥 CREATE
+// 🔥 CREATE (FIX FINAL 🔥)
 // ============================
 router.post(
   "/",
   verifyToken,
   rbac(["admin", "owner"]),
+
+  // ✅ ambil file dari form-data
+  upload.fields([
+    { name: "proof", maxCount: 1 }, // HARUS sama dengan frontend
+  ]),
+
+  // ✅ upload ke supabase bucket: transaction
+  processImage("transaction"),
+
   controller.createTransaction,
 );
 

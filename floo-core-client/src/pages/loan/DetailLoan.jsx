@@ -41,8 +41,6 @@ export default function DetailLoan() {
   const fetchTransactions = async () => {
     try {
       const res = await api.get(`/transactions?loan_id=${id}`);
-
-      // 🔥 FIX ANTI ERROR
       const trx = res.data?.data?.data || [];
       setTransactions(Array.isArray(trx) ? trx : []);
     } catch {
@@ -79,12 +77,9 @@ export default function DetailLoan() {
   const handleApproveManager = async () => {
     try {
       setActionLoading(true);
-
       await api.post(`/loans/${loan.id}/approve-manager`);
-
       Swal.fire("Success", "Approved by manager", "success");
-
-      navigate("/loans"); // 🔥 redirect
+      navigate("/loans");
     } catch {
       Swal.fire("Error", "Gagal approve", "error");
     } finally {
@@ -95,12 +90,9 @@ export default function DetailLoan() {
   const handleApproveOwner = async () => {
     try {
       setActionLoading(true);
-
       await api.post(`/loans/${loan.id}/approve-owner`);
-
       Swal.fire("Success", "Approved by owner", "success");
-
-      navigate("/loans"); // 🔥 redirect
+      navigate("/loans");
     } catch {
       Swal.fire("Error", "Gagal approve", "error");
     } finally {
@@ -109,43 +101,41 @@ export default function DetailLoan() {
   };
 
   // =========================
-  // 🔥 PAYMENT
+  // 🔥 PAYMENT (FIX FINAL)
   // =========================
   const handlePay = async () => {
     try {
       const amount = parseNumber(payAmount);
 
+      // validasi nominal
       if (!amount || amount <= 0) {
         return Swal.fire("Error", "Nominal tidak valid", "error");
       }
 
-      setActionLoading(true);
-
-      let proofUrl = null;
-
-      // 🔥 UPLOAD KE SUPABASE
-      if (proof) {
-        const formData = new FormData();
-        formData.append("proof", proof);
-
-        const upload = await api.post("/upload/transaction", formData);
-        proofUrl = upload.data.data.url;
+      // 🔥 WAJIB upload bukti
+      if (!proof) {
+        return Swal.fire("Error", "Upload bukti pembayaran dulu", "error");
       }
 
-      await api.post("/transactions", {
-        loan_id: loan.id,
-        amount,
-        proof: proofUrl,
-      });
+      setActionLoading(true);
+
+      // 🔥 LANGSUNG FORM DATA (TANPA /upload)
+      const formData = new FormData();
+      formData.append("loan_id", loan.id);
+      formData.append("amount", amount);
+      formData.append("proof", proof); // wajib "proof"
+
+      await api.post("/transactions", formData);
 
       Swal.fire("Success", "Pembayaran berhasil", "success");
 
+      // reset state
       setPayAmount("");
       setProof(null);
       setPreview(null);
 
-      fetchDetail();
-      fetchTransactions();
+      // refresh data
+      await Promise.all([fetchDetail(), fetchTransactions()]);
     } catch (err) {
       Swal.fire(
         "Error",
