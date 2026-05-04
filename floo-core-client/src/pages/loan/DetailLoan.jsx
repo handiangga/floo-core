@@ -4,7 +4,7 @@ import api from "../../api/api";
 import Swal from "sweetalert2";
 
 import { getUser } from "../../utils/auth";
-import { formatRupiah, parseNumber } from "../../utils/format";
+import { parseNumber } from "../../utils/format";
 
 import LoanInfoCard from "../../components/Loan/LoanInfoCard";
 import LoanActions from "../../components/Loan/LoanActions";
@@ -14,7 +14,6 @@ import LoanHistory from "../../components/Loan/LoanHistory";
 export default function DetailLoan() {
   const { id } = useParams();
   const navigate = useNavigate();
-
   const user = getUser();
 
   const [loan, setLoan] = useState(null);
@@ -22,21 +21,35 @@ export default function DetailLoan() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // PAYMENT STATE
   const [payAmount, setPayAmount] = useState("");
   const [proof, setProof] = useState(null);
   const [preview, setPreview] = useState(null);
 
   // =========================
-  // FETCH DATA
+  // 🔥 NORMALIZER (PENTING)
+  // =========================
+  const normalizeArray = (data) => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.data)) return data.data;
+    if (Array.isArray(data.rows)) return data.rows;
+    return [];
+  };
+
+  // =========================
+  // FETCH
   // =========================
   const fetchDetail = async () => {
     try {
       const res = await api.get(`/loans/${id}`);
       setLoan(res.data.data);
 
-      const trx = await api.get(`/transactions?loan_id=${id}`);
-      setTransactions(trx.data.data || []);
+      const trxRes = await api.get(`/transactions?loan_id=${id}`);
+
+      const trxData = trxRes.data.data;
+
+      // 🔥 FIX FINAL
+      setTransactions(normalizeArray(trxData));
     } catch (err) {
       Swal.fire("Error", "Gagal load detail loan", "error");
     } finally {
@@ -49,17 +62,14 @@ export default function DetailLoan() {
   }, [id]);
 
   // =========================
-  // APPROVAL
+  // APPROVE
   // =========================
   const handleApproveManager = async () => {
     try {
       setActionLoading(true);
-
       await api.post(`/loans/${id}/approve-manager`);
 
       Swal.fire("Success", "Approved by manager", "success");
-
-      // 🔥 redirect biar gak error 403
       navigate("/loans");
     } catch (err) {
       Swal.fire("Error", err?.response?.data?.message, "error");
@@ -71,12 +81,9 @@ export default function DetailLoan() {
   const handleApproveOwner = async () => {
     try {
       setActionLoading(true);
-
       await api.post(`/loans/${id}/approve-owner`);
 
       Swal.fire("Success", "Loan approved & disbursed", "success");
-
-      // 🔥 redirect
       navigate("/loans");
     } catch (err) {
       Swal.fire("Error", err?.response?.data?.message, "error");
@@ -98,13 +105,11 @@ export default function DetailLoan() {
 
       let proofUrl = null;
 
-      // 🔥 upload dulu kalau ada file
       if (proof) {
         const formData = new FormData();
         formData.append("proof", proof);
 
         const upload = await api.post("/upload", formData);
-
         proofUrl = upload.data.data?.proof;
       }
 
@@ -129,7 +134,7 @@ export default function DetailLoan() {
   };
 
   // =========================
-  // STATE HELPER
+  // STATE
   // =========================
   const isPending =
     loan?.status === "pending_manager" || loan?.status === "pending_owner";
@@ -152,7 +157,6 @@ export default function DetailLoan() {
   // =========================
   return (
     <div className="p-6">
-      {/* HEADER */}
       <button onClick={() => navigate("/loans")} className="text-sm mb-2">
         ← Kembali
       </button>
@@ -160,10 +164,8 @@ export default function DetailLoan() {
       <h1 className="text-2xl font-bold">Loan Detail</h1>
       <p className="text-gray-500 mb-4">{loan.Employee?.name || "-"}</p>
 
-      {/* INFO */}
       <LoanInfoCard loan={loan} />
 
-      {/* ACTIONS */}
       <LoanActions
         loan={loan}
         user={user}
@@ -172,14 +174,12 @@ export default function DetailLoan() {
         onApproveOwner={handleApproveOwner}
       />
 
-      {/* ALERT */}
       {isPending && (
         <div className="bg-yellow-50 p-4 mt-4 rounded-xl text-yellow-600 text-sm">
           ⏳ Menunggu approval sebelum bisa dibayar
         </div>
       )}
 
-      {/* PAYMENT */}
       {isOngoing && (
         <LoanPayment
           loan={loan}
@@ -195,8 +195,8 @@ export default function DetailLoan() {
         />
       )}
 
-      {/* HISTORY */}
-      <LoanHistory transactions={transactions} />
+      {/* 🔥 ANTI CRASH */}
+      <LoanHistory transactions={normalizeArray(transactions)} />
     </div>
   );
 }
