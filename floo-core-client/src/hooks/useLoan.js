@@ -12,8 +12,6 @@ export default function useLoan() {
 
       const res = await api.get("/loans");
 
-      console.log("LOAN RES:", res.data); // 🔥 debug
-
       setData(res?.data?.data || []);
     } catch (err) {
       console.error("LOAN ERROR:", err);
