@@ -32,203 +32,215 @@ const fillDates = (rows, days = 14) => {
 };
 
 // ============================
-// 🔥 MAIN SERVICE (FIXED)
+// 🔥 MAIN SERVICE (ANTI CRASH)
 // ============================
-const getDashboard = async ({ user = {}, start_date, end_date } = {}) => {
-  const now = new Date();
+const getDashboard = async (params = {}) => {
+  try {
+    const { user, start_date, end_date } = params;
 
-  // ============================
-  // 🔐 ROLE FILTER
-  // ============================
-  const loanWhere = {};
+    const role = user?.role || "admin"; // 🔥 FIX UTAMA
 
-  if (user?.role === "manager") {
-    loanWhere.status = "pending_manager";
-  }
+    const now = new Date();
 
-  if (user?.role === "owner") {
-    loanWhere.status = "pending_owner";
-  }
+    // ============================
+    // 🔐 ROLE FILTER
+    // ============================
+    const loanWhere = {};
 
-  // ============================
-  // 🔥 KPI
-  // ============================
-  const [
-    totalEmployees,
-    totalLoanRaw,
-    totalRemainingRaw,
-    totalPaymentRaw,
-    activeLoans,
-    paidLoans,
-    overdueLoans,
-  ] = await Promise.all([
-    Employee.count(),
-
-    Loan.sum("total_amount"),
-
-    Loan.sum("remaining_amount"),
-
-    Transaction.sum("amount"),
-
-    Loan.count({
-      where: { remaining_amount: { [Op.gt]: 0 }, ...loanWhere },
-    }),
-
-    Loan.count({
-      where: { remaining_amount: 0, ...loanWhere },
-    }),
-
-    Loan.count({
-      where: {
-        remaining_amount: { [Op.gt]: 0 },
-        due_date: { [Op.lt]: now },
-        ...loanWhere,
-      },
-    }),
-  ]);
-
-  const totalLoan = Number(totalLoanRaw) || 0;
-  const totalRemaining = Number(totalRemainingRaw) || 0;
-  const totalPayment = Number(totalPaymentRaw) || 0;
-
-  const collectionRate =
-    totalLoan > 0 ? ((totalLoan - totalRemaining) / totalLoan) * 100 : 0;
-
-  // ============================
-  // 🔥 CASHFLOW CHART
-  // ============================
-  const cashflowRaw = await Cashflow.findAll({
-    attributes: [
-      [fn("DATE", col("createdAt")), "date"],
-      "type",
-      [fn("SUM", col("amount")), "total"],
-    ],
-    group: [fn("DATE", col("createdAt")), "type"],
-    order: [[literal("date"), "ASC"]],
-    raw: true,
-  });
-
-  const grouped = {};
-
-  for (const c of cashflowRaw) {
-    const date = c.date;
-    const total = Number(c.total) || 0;
-
-    if (!grouped[date]) {
-      grouped[date] = { date, masuk: 0, keluar: 0 };
+    if (role === "manager") {
+      loanWhere.status = "pending_manager";
     }
 
-    if (c.type === "in") grouped[date].masuk += total;
-    if (c.type === "out") grouped[date].keluar += total;
-  }
+    if (role === "owner") {
+      loanWhere.status = "pending_owner";
+    }
 
-  let cashflow = Object.values(grouped);
-  cashflow = fillDates(cashflow, 14);
-
-  // ============================
-  // 🔥 CASH BALANCE
-  // ============================
-  const cashRaw = await Cashflow.findAll({
-    attributes: [
-      "type",
-      [fn("COALESCE", fn("SUM", col("amount")), 0), "total"],
-    ],
-    group: ["type"],
-    raw: true,
-  });
-
-  let totalIn = 0;
-  let totalOut = 0;
-
-  for (const c of cashRaw) {
-    const total = Number(c.total) || 0;
-    if (c.type === "in") totalIn += total;
-    if (c.type === "out") totalOut += total;
-  }
-
-  const cashBalance = totalIn - totalOut;
-
-  // ============================
-  // 🔥 ACTIVITIES
-  // ============================
-  const activitiesRaw = await Cashflow.findAll({
-    limit: 10,
-    order: [["createdAt", "DESC"]],
-    include: [
-      {
-        model: Loan,
-        as: "Loan",
-        attributes: ["id"],
-        required: false,
-        include: [
-          {
-            model: Employee,
-            as: "Employee",
-            attributes: ["name"],
-            required: false,
-          },
-        ],
-      },
-    ],
-  });
-
-  const activities = activitiesRaw.map((item) => {
-    const employeeName = item.Loan?.Employee?.name;
-
-    let label = "-";
-    if (item.source === "loan") label = "Pinjaman Baru";
-    if (item.source === "payment") label = "Pembayaran";
-
-    return {
-      id: item.id,
-      amount: Number(item.amount) || 0,
-      type: item.type,
-      source: item.source,
-      date: item.createdAt,
-      employee: employeeName || label,
-    };
-  });
-
-  // ============================
-  // 🔥 TOP DEBTOR
-  // ============================
-  const topDebtorsRaw = await Loan.findAll({
-    attributes: ["employee_id", [fn("SUM", col("remaining_amount")), "total"]],
-    group: ["employee_id", "Employee.id"],
-    order: [[literal("total"), "DESC"]],
-    limit: 5,
-    include: [
-      {
-        model: Employee,
-        as: "Employee",
-        attributes: ["name"],
-      },
-    ],
-  });
-
-  const topDebtors = topDebtorsRaw.map((item) => ({
-    name: item.Employee?.name || "-",
-    total: Number(item.dataValues.total) || 0,
-  }));
-
-  return {
-    summary: {
+    // ============================
+    // 🔥 KPI
+    // ============================
+    const [
       totalEmployees,
-      totalLoan,
-      totalRemaining,
-      totalPayment,
+      totalLoanRaw,
+      totalRemainingRaw,
+      totalPaymentRaw,
       activeLoans,
       paidLoans,
-      collectionRate: Number(collectionRate.toFixed(2)),
       overdueLoans,
-      cashBalance,
-      cashIn: totalIn,
-      cashOut: totalOut,
-    },
-    cashflow,
-    activities,
-    topDebtors,
-  };
+    ] = await Promise.all([
+      Employee.count(),
+
+      Loan.sum("total_amount"),
+
+      Loan.sum("remaining_amount"),
+
+      Transaction.sum("amount"),
+
+      Loan.count({
+        where: { remaining_amount: { [Op.gt]: 0 }, ...loanWhere },
+      }),
+
+      Loan.count({
+        where: { remaining_amount: 0, ...loanWhere },
+      }),
+
+      Loan.count({
+        where: {
+          remaining_amount: { [Op.gt]: 0 },
+          due_date: { [Op.lt]: now },
+          ...loanWhere,
+        },
+      }),
+    ]);
+
+    const totalLoan = Number(totalLoanRaw) || 0;
+    const totalRemaining = Number(totalRemainingRaw) || 0;
+    const totalPayment = Number(totalPaymentRaw) || 0;
+
+    const collectionRate =
+      totalLoan > 0 ? ((totalLoan - totalRemaining) / totalLoan) * 100 : 0;
+
+    // ============================
+    // 🔥 CASHFLOW
+    // ============================
+    const cashflowRaw = await Cashflow.findAll({
+      attributes: [
+        [fn("DATE", col("createdAt")), "date"],
+        "type",
+        [fn("SUM", col("amount")), "total"],
+      ],
+      group: [fn("DATE", col("createdAt")), "type"],
+      order: [[literal("date"), "ASC"]],
+      raw: true,
+    });
+
+    const grouped = {};
+
+    for (const c of cashflowRaw) {
+      const date = c.date;
+      const total = Number(c.total) || 0;
+
+      if (!grouped[date]) {
+        grouped[date] = { date, masuk: 0, keluar: 0 };
+      }
+
+      if (c.type === "in") grouped[date].masuk += total;
+      if (c.type === "out") grouped[date].keluar += total;
+    }
+
+    let cashflow = Object.values(grouped);
+    cashflow = fillDates(cashflow, 14);
+
+    // ============================
+    // 🔥 CASH BALANCE
+    // ============================
+    const cashRaw = await Cashflow.findAll({
+      attributes: [
+        "type",
+        [fn("COALESCE", fn("SUM", col("amount")), 0), "total"],
+      ],
+      group: ["type"],
+      raw: true,
+    });
+
+    let totalIn = 0;
+    let totalOut = 0;
+
+    for (const c of cashRaw) {
+      const total = Number(c.total) || 0;
+
+      if (c.type === "in") totalIn += total;
+      if (c.type === "out") totalOut += total;
+    }
+
+    const cashBalance = totalIn - totalOut;
+
+    // ============================
+    // 🔥 ACTIVITIES
+    // ============================
+    const activitiesRaw = await Cashflow.findAll({
+      limit: 10,
+      order: [["createdAt", "DESC"]],
+      include: [
+        {
+          model: Loan,
+          as: "Loan",
+          required: false,
+          include: [
+            {
+              model: Employee,
+              as: "Employee",
+              attributes: ["name"],
+              required: false,
+            },
+          ],
+        },
+      ],
+    });
+
+    const activities = activitiesRaw.map((item) => {
+      const employeeName = item.Loan?.Employee?.name;
+
+      let label = "-";
+      if (item.source === "loan") label = "Pinjaman Baru";
+      if (item.source === "payment") label = "Pembayaran";
+
+      return {
+        id: item.id,
+        amount: Number(item.amount) || 0,
+        type: item.type,
+        source: item.source,
+        date: item.createdAt,
+        employee: employeeName || label,
+      };
+    });
+
+    // ============================
+    // 🔥 TOP DEBTOR
+    // ============================
+    const topDebtorsRaw = await Loan.findAll({
+      attributes: [
+        "employee_id",
+        [fn("SUM", col("remaining_amount")), "total"],
+      ],
+      group: ["employee_id", "Employee.id"],
+      order: [[literal("total"), "DESC"]],
+      limit: 5,
+      include: [
+        {
+          model: Employee,
+          as: "Employee",
+          attributes: ["name"],
+        },
+      ],
+    });
+
+    const topDebtors = topDebtorsRaw.map((item) => ({
+      name: item.Employee?.name || "-",
+      total: Number(item.dataValues.total) || 0,
+    }));
+
+    return {
+      summary: {
+        totalEmployees,
+        totalLoan,
+        totalRemaining,
+        totalPayment,
+        activeLoans,
+        paidLoans,
+        collectionRate: Number(collectionRate.toFixed(2)),
+        overdueLoans,
+        cashBalance,
+        cashIn: totalIn,
+        cashOut: totalOut,
+      },
+      cashflow,
+      activities,
+      topDebtors,
+    };
+  } catch (err) {
+    console.error("DASHBOARD ERROR:", err);
+    throw err;
+  }
 };
 
 module.exports = {
