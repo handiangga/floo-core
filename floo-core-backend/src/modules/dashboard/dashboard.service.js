@@ -3,10 +3,56 @@ const { Op, fn, col, literal } = require("sequelize");
 
 const { Employee, Loan, Transaction, Cashflow } = db;
 
-const getDashboard = async () => {
-  // =========================================================
-  // 🔥 KPI
-  // =========================================================
+// ============================
+// 🔧 HELPER: fill missing dates (optional)
+// ============================
+const fillDates = (rows, days = 14) => {
+  const map = {};
+  rows.forEach((r) => (map[r.date] = r));
+
+  const result = [];
+  const now = new Date();
+
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+
+    const key = d.toISOString().slice(0, 10);
+
+    result.push(
+      map[key] || {
+        date: key,
+        masuk: 0,
+        keluar: 0,
+      },
+    );
+  }
+
+  return result;
+};
+
+// ============================
+// 🔥 MAIN SERVICE
+// ============================
+const getDashboard = async (user = null) => {
+  const now = new Date();
+
+  // ============================
+  // 🔐 ROLE FILTER (OPTIONAL)
+  // ============================
+  const loanWhere = {};
+
+  if (user?.role === "manager") {
+    loanWhere.status = "pending_manager";
+  }
+
+  if (user?.role === "owner") {
+    loanWhere.status = "pending_owner";
+  }
+
+  // ============================
+  // 🔥 KPI (PARALLEL)
+  // ============================
   const [
     totalEmployees,
     totalLoanRaw,
@@ -14,13 +60,31 @@ const getDashboard = async () => {
     totalPaymentRaw,
     activeLoans,
     paidLoans,
+    overdueLoans,
   ] = await Promise.all([
     Employee.count(),
+
     Loan.sum("total_amount"),
+
     Loan.sum("remaining_amount"),
+
     Transaction.sum("amount"),
-    Loan.count({ where: { remaining_amount: { [Op.gt]: 0 } } }),
-    Loan.count({ where: { remaining_amount: 0 } }),
+
+    Loan.count({
+      where: { remaining_amount: { [Op.gt]: 0 }, ...loanWhere },
+    }),
+
+    Loan.count({
+      where: { remaining_amount: 0, ...loanWhere },
+    }),
+
+    Loan.count({
+      where: {
+        remaining_amount: { [Op.gt]: 0 },
+        due_date: { [Op.lt]: now },
+        ...loanWhere,
+      },
+    }),
   ]);
 
   const totalLoan = Number(totalLoanRaw) || 0;
@@ -30,21 +94,9 @@ const getDashboard = async () => {
   const collectionRate =
     totalLoan > 0 ? ((totalLoan - totalRemaining) / totalLoan) * 100 : 0;
 
-  // =========================================================
-  // 🔥 RISKY + OVERDUE (UPGRADE)
-  // =========================================================
-  const now = new Date();
-
-  const overdueLoans = await Loan.count({
-    where: {
-      remaining_amount: { [Op.gt]: 0 },
-      due_date: { [Op.lt]: now }, // 🔥 pakai due_date (lebih akurat)
-    },
-  });
-
-  // =========================================================
+  // ============================
   // 🔥 CASHFLOW CHART
-  // =========================================================
+  // ============================
   const cashflowRaw = await Cashflow.findAll({
     attributes: [
       [fn("DATE", col("createdAt")), "date"],
@@ -67,14 +119,17 @@ const getDashboard = async () => {
     }
 
     if (c.type === "in") grouped[date].masuk += total;
-    else if (c.type === "out") grouped[date].keluar += total;
+    if (c.type === "out") grouped[date].keluar += total;
   }
 
-  const cashflow = Object.values(grouped);
+  let cashflow = Object.values(grouped);
 
-  // =========================================================
+  // 🔥 optional: isi tanggal kosong (biar chart smooth)
+  cashflow = fillDates(cashflow, 14);
+
+  // ============================
   // 🔥 CASH BALANCE
-  // =========================================================
+  // ============================
   const cashRaw = await Cashflow.findAll({
     attributes: [
       "type",
@@ -89,15 +144,16 @@ const getDashboard = async () => {
 
   for (const c of cashRaw) {
     const total = Number(c.total) || 0;
+
     if (c.type === "in") totalIn += total;
-    else if (c.type === "out") totalOut += total;
+    if (c.type === "out") totalOut += total;
   }
 
   const cashBalance = totalIn - totalOut;
 
-  // =========================================================
-  // 🔥 ACTIVITIES (NO BUG + NO MISLEADING)
-  // =========================================================
+  // ============================
+  // 🔥 ACTIVITIES
+  // ============================
   const activitiesRaw = await Cashflow.findAll({
     limit: 10,
     order: [["createdAt", "DESC"]],
@@ -105,7 +161,7 @@ const getDashboard = async () => {
       {
         model: Loan,
         as: "Loan",
-        attributes: ["id", "employee_id"],
+        attributes: ["id"],
         required: false,
         include: [
           {
@@ -122,18 +178,10 @@ const getDashboard = async () => {
   const activities = activitiesRaw.map((item) => {
     const employeeName = item.Loan?.Employee?.name;
 
-    // 🔥 FIX FINAL: jangan pakai "System Pembayaran"
-    let displayName = employeeName;
+    let label = "-";
 
-    if (!displayName) {
-      if (item.source === "loan") {
-        displayName = "Pinjaman Baru";
-      } else if (item.source === "payment") {
-        displayName = "Pembayaran";
-      } else {
-        displayName = "-";
-      }
-    }
+    if (item.source === "loan") label = "Pinjaman Baru";
+    if (item.source === "payment") label = "Pembayaran";
 
     return {
       id: item.id,
@@ -141,13 +189,13 @@ const getDashboard = async () => {
       type: item.type,
       source: item.source,
       date: item.createdAt,
-      employee: displayName,
+      employee: employeeName || label,
     };
   });
 
-  // =========================================================
+  // ============================
   // 🔥 TOP DEBTOR
-  // =========================================================
+  // ============================
   const topDebtorsRaw = await Loan.findAll({
     attributes: ["employee_id", [fn("SUM", col("remaining_amount")), "total"]],
     group: ["employee_id", "Employee.id"],
@@ -164,9 +212,12 @@ const getDashboard = async () => {
 
   const topDebtors = topDebtorsRaw.map((item) => ({
     name: item.Employee?.name || "-",
-    total: Number(item.dataValues.total || 0),
+    total: Number(item.dataValues.total) || 0,
   }));
 
+  // ============================
+  // 🔥 FINAL RESPONSE
+  // ============================
   return {
     summary: {
       totalEmployees,
@@ -176,7 +227,7 @@ const getDashboard = async () => {
       activeLoans,
       paidLoans,
       collectionRate: Number(collectionRate.toFixed(2)),
-      overdueLoans, // 🔥 UPGRADE
+      overdueLoans,
 
       cashBalance,
       cashIn: totalIn,

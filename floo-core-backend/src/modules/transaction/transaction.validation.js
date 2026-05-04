@@ -1,29 +1,56 @@
 const Joi = require("joi");
 
-// 🔥 CREATE
+// ============================
+// 🔥 OPTIONS (STRICT MODE)
+// ============================
+const options = {
+  abortEarly: false,
+  allowUnknown: false,
+  stripUnknown: true,
+};
+
+// ============================
+// 🔥 CREATE TRANSACTION
+// ============================
 const createTransactionSchema = Joi.object({
-  loan_id: Joi.number().required(),
-  amount: Joi.number().min(1).required(),
+  loan_id: Joi.number().integer().positive().required(),
 
-  // ✅ TAMBAH INI
+  amount: Joi.number()
+    .integer()
+    .min(1)
+    .max(1000000000) // 🔥 guard max
+    .required(),
+
   proof: Joi.string().uri().optional().allow(null, ""),
+
+  // 🔒 forbid field manipulasi
+  remaining_after: Joi.forbidden(),
+  type: Joi.forbidden(),
+  payment_date: Joi.forbidden(),
 });
 
-// 🔥 UPDATE
+// ============================
+// 🔥 UPDATE TRANSACTION
+// ============================
+// 👉 biasanya disable di service, tapi tetap aman
 const updateTransactionSchema = Joi.object({
-  amount: Joi.number().min(1).optional(),
+  amount: Joi.number().integer().min(1).max(1000000000),
 
-  // ✅ TAMBAH JUGA
   proof: Joi.string().uri().optional().allow(null, ""),
-}).min(1);
+})
+  .min(1)
+  .unknown(false);
 
+// ============================
 // 🔥 PARAM ID
+// ============================
 const transactionIdParam = Joi.object({
-  id: Joi.number().required(),
+  id: Joi.number().integer().positive().required(),
 });
 
+// ============================
 module.exports = {
-  createTransactionSchema,
-  updateTransactionSchema,
+  createTransactionSchema: createTransactionSchema.options(options),
+  updateTransactionSchema: updateTransactionSchema.options(options),
   transactionIdParam,
 };

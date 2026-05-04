@@ -7,7 +7,7 @@ const { logAudit } = require("../../utils/audit");
 const { Transaction, Loan, Cashflow } = db;
 
 // ============================
-// 🔥 RECALC LOAN (FIXED)
+// 🔥 RECALC LOAN
 // ============================
 const recalcLoanTransactions = async (loan_id, t) => {
   const loan = await Loan.findByPk(loan_id, {
@@ -39,29 +39,22 @@ const recalcLoanTransactions = async (loan_id, t) => {
     await trx.save({ transaction: t });
   }
 
-  // 🔥 FIX STATUS
-  let status = "ongoing";
-
-  if (remaining === 0) {
-    status = "completed"; // ✅ FIX
-  }
-
   loan.remaining_amount = remaining;
-  loan.status = status;
+  loan.status = remaining === 0 ? "completed" : "ongoing";
 
   await loan.save({ transaction: t });
 };
 
 // ============================
-// 🔥 CREATE TRANSACTION (FIXED)
+// 🔥 CREATE TRANSACTION
 // ============================
-const createTransaction = async ({
-  loan_id,
-  amount,
-  proof,
-  user_id = null,
-}) => {
+const createTransaction = async ({ loan_id, amount, proof, user }) => {
   return await db.sequelize.transaction(async (t) => {
+    // 🔐 SECURITY
+    if (!["admin", "owner"].includes(user.role)) {
+      throw { status: 403, message: "Forbidden" };
+    }
+
     const loan = await Loan.findByPk(loan_id, {
       transaction: t,
       lock: t.LOCK.UPDATE,
@@ -69,12 +62,8 @@ const createTransaction = async ({
 
     if (!loan) throw { status: 404, message: "Loan not found" };
 
-    // 🔥 FIX: hanya boleh bayar kalau ongoing
     if (loan.status !== "ongoing") {
-      throw {
-        status: 400,
-        message: "Loan belum aktif / belum disetujui",
-      };
+      throw { status: 400, message: "Loan belum aktif" };
     }
 
     if (loan.remaining_amount <= 0) {
@@ -119,25 +108,24 @@ const createTransaction = async ({
       { transaction: t },
     );
 
-    // 🔥 CASHFLOW
+    // 🔥 CASHFLOW (pakai trx.id biar precise)
     await Cashflow.create(
       {
         type: "in",
         amount,
         source: "payment",
-        reference_id: loan_id,
+        reference_id: trx.id,
         note: "Pembayaran pinjaman",
       },
       { transaction: t },
     );
 
-    // 🔥 RECALC
     await recalcLoanTransactions(loan_id, t);
 
     await clearAllCache();
 
     await logAudit({
-      user_id,
+      user_id: user.id,
       action: "CREATE",
       entity: "transaction",
       entity_id: trx.id,
@@ -149,22 +137,24 @@ const createTransaction = async ({
 };
 
 // ============================
-// 🔥 GET ALL
+// 🔥 GET ALL (RBAC)
 // ============================
-const getAllTransactions = async ({ page = 1, limit = 10, loan_id }) => {
+const getAllTransactions = async ({ page = 1, limit = 10, loan_id, user }) => {
   const offset = (page - 1) * limit;
 
   const where = {};
   if (loan_id) where.loan_id = loan_id;
 
+  const include = [
+    {
+      model: Loan,
+      attributes: ["id", "type", "status"],
+    },
+  ];
+
   const { rows, count } = await Transaction.findAndCountAll({
     where,
-    include: [
-      {
-        model: Loan,
-        attributes: ["id", "type", "status"],
-      },
-    ],
+    include,
     limit: parseInt(limit),
     offset: parseInt(offset),
     order: [
@@ -184,22 +174,43 @@ const getAllTransactions = async ({ page = 1, limit = 10, loan_id }) => {
 };
 
 // ============================
-// 🔥 DELETE (FIX CASHFLOW)
+// 🔥 GET DETAIL
 // ============================
-const deleteTransaction = async (id, user_id = null) => {
+const getTransactionById = async (id) => {
+  const trx = await Transaction.findByPk(id, {
+    include: [
+      {
+        model: Loan,
+        attributes: ["id", "type", "status"],
+      },
+    ],
+  });
+
+  if (!trx) throw { status: 404, message: "Transaction not found" };
+
+  return trx;
+};
+
+// ============================
+// 🔥 DELETE
+// ============================
+const deleteTransaction = async (id, user) => {
   return await db.sequelize.transaction(async (t) => {
+    if (user.role !== "admin") {
+      throw { status: 403, message: "Forbidden" };
+    }
+
     const trx = await Transaction.findByPk(id, { transaction: t });
 
     if (!trx) throw { status: 404, message: "Transaction not found" };
 
     const loan_id = trx.loan_id;
 
-    // 🔥 lebih aman delete pakai trx.id
+    // 🔥 delete cashflow by trx.id
     await Cashflow.destroy({
       where: {
-        reference_id: loan_id,
+        reference_id: trx.id,
         source: "payment",
-        amount: trx.amount,
       },
       transaction: t,
     });
@@ -207,10 +218,11 @@ const deleteTransaction = async (id, user_id = null) => {
     await trx.destroy({ transaction: t });
 
     await recalcLoanTransactions(loan_id, t);
+
     await clearAllCache();
 
     await logAudit({
-      user_id,
+      user_id: user.id,
       action: "DELETE",
       entity: "transaction",
       entity_id: id,
@@ -224,13 +236,6 @@ const deleteTransaction = async (id, user_id = null) => {
 module.exports = {
   createTransaction,
   getAllTransactions,
-  getTransactionById: async (id) => {
-    const trx = await Transaction.findByPk(id);
-    if (!trx) throw { status: 404, message: "Transaction not found" };
-    return trx;
-  },
-  updateTransaction: async () => {
-    throw new Error("Update transaction disabled (unsafe)");
-  },
+  getTransactionById,
   deleteTransaction,
 };

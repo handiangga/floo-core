@@ -66,7 +66,16 @@ const processImage = (bucket = "employees") => {
           file.url = data.publicUrl;
         }
       }
+      // 🔥 inject ke body biar controller bisa pakai
+      if (req.files) {
+        const firstField = Object.keys(req.files)[0];
+        const firstFile = req.files[firstField][0];
 
+        if (firstFile?.url) {
+          if (!req.body) req.body = {};
+          req.body.proof = firstFile.url;
+        }
+      }
       next();
     } catch (err) {
       next(err);
