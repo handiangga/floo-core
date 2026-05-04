@@ -10,6 +10,8 @@ export default function DetailLoan() {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
   const [loan, setLoan] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,10 +26,11 @@ export default function DetailLoan() {
     try {
       setLoading(true);
 
+      // 🔥 ambil loan dulu
       const loanRes = await api.get(`/loans/${id}`);
       setLoan(loanRes.data.data);
 
-      // 🔥 lazy load transaksi
+      // 🔥 transaksi async (biar cepat)
       setTimeout(async () => {
         try {
           const trxRes = await api.get(`/transactions?loan_id=${id}`);
@@ -37,7 +40,7 @@ export default function DetailLoan() {
         }
       }, 0);
     } catch (err) {
-      Swal.fire("Error", err.message, "error");
+      Swal.fire("Error", err.response?.data?.message || err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -59,7 +62,7 @@ export default function DetailLoan() {
   const isOngoing = loan?.status === "ongoing";
   const isCompleted = loan?.status === "completed";
 
-  // ================= STATUS UI =================
+  // ================= STATUS =================
   const getStatusBadge = () => {
     switch (loan.status) {
       case "pending_manager":
@@ -73,6 +76,10 @@ export default function DetailLoan() {
       default:
         return "bg-gray-100 text-gray-600";
     }
+  };
+
+  const getStatusLabel = () => {
+    return loan.status.replace("_", " ");
   };
 
   // ================= APPROVAL =================
@@ -93,7 +100,7 @@ export default function DetailLoan() {
       Swal.fire("Success", "Approved by Manager", "success");
       fetchData();
     } catch (err) {
-      Swal.fire("Error", err.message, "error");
+      Swal.fire("Error", err.response?.data?.message || err.message, "error");
     } finally {
       setActionLoading(false);
     }
@@ -116,7 +123,7 @@ export default function DetailLoan() {
       Swal.fire("Success", "Loan disetujui & dicairkan", "success");
       fetchData();
     } catch (err) {
-      Swal.fire("Error", err.message, "error");
+      Swal.fire("Error", err.response?.data?.message || err.message, "error");
     } finally {
       setActionLoading(false);
     }
@@ -130,10 +137,15 @@ export default function DetailLoan() {
       const amount = parseNumber(payAmount);
 
       if (!amount) return Swal.fire("Error", "Isi nominal", "warning");
+
       if (!proof) return Swal.fire("Error", "Upload bukti", "warning");
 
+      if (amount > loan.remaining_amount) {
+        return Swal.fire("Error", "Melebihi sisa pinjaman", "warning");
+      }
+
       const confirm = await Swal.fire({
-        title: "Bayar?",
+        title: "Konfirmasi",
         text: formatRupiah(amount),
         showCancelButton: true,
       });
@@ -161,7 +173,7 @@ export default function DetailLoan() {
 
       fetchData();
     } catch (err) {
-      Swal.fire("Error", err.message, "error");
+      Swal.fire("Error", err.response?.data?.message || err.message, "error");
     } finally {
       setActionLoading(false);
     }
@@ -193,7 +205,7 @@ export default function DetailLoan() {
         </div>
 
         <span className={`px-3 py-1 text-xs rounded-full ${getStatusBadge()}`}>
-          {loan.status.replace("_", " ")}
+          {getStatusLabel()}
         </span>
       </div>
 
@@ -205,7 +217,7 @@ export default function DetailLoan() {
           <Stat label="Cicilan" value={loan.installment} />
         </div>
 
-        <div className="text-sm text-gray-500 grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-4 text-sm text-gray-500">
           <div>
             Cair:
             <br />
@@ -213,6 +225,7 @@ export default function DetailLoan() {
               ? new Date(loan.disbursed_at).toLocaleDateString("id-ID")
               : "-"}
           </div>
+
           <div>
             Jatuh Tempo:
             <br />
@@ -220,10 +233,10 @@ export default function DetailLoan() {
               ? new Date(loan.due_date).toLocaleDateString("id-ID")
               : "-"}
           </div>
+
           <div>Status: {loan.status}</div>
         </div>
 
-        {/* PROGRESS */}
         <div className="w-full bg-gray-200 h-3 rounded-full">
           <div
             className="bg-green-500 h-3 rounded-full"
@@ -232,8 +245,8 @@ export default function DetailLoan() {
         </div>
       </div>
 
-      {/* APPROVAL */}
-      {loan.status === "pending_manager" && (
+      {/* APPROVAL BUTTONS */}
+      {loan.status === "pending_manager" && user?.role === "manager" && (
         <button
           onClick={handleApproveManager}
           disabled={actionLoading}
@@ -243,7 +256,7 @@ export default function DetailLoan() {
         </button>
       )}
 
-      {loan.status === "pending_owner" && (
+      {loan.status === "pending_owner" && user?.role === "owner" && (
         <button
           onClick={handleApproveOwner}
           disabled={actionLoading}
@@ -253,10 +266,10 @@ export default function DetailLoan() {
         </button>
       )}
 
-      {/* EMPTY STATE */}
+      {/* INFO PENDING */}
       {isPending && (
-        <div className="bg-yellow-50 p-4 mt-4 rounded-xl text-yellow-600">
-          Menunggu approval sebelum bisa dibayar
+        <div className="bg-yellow-50 p-4 mt-4 rounded-xl text-yellow-600 text-sm">
+          ⏳ Menunggu approval sebelum bisa dibayar
         </div>
       )}
 
@@ -274,6 +287,26 @@ export default function DetailLoan() {
             className="border px-4 py-3 rounded-xl w-full"
             placeholder="0"
           />
+
+          <label className="border-2 border-dashed p-4 rounded-xl text-center cursor-pointer">
+            <input
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                setProof(file);
+                setPreview(URL.createObjectURL(file));
+              }}
+            />
+
+            {!preview ? (
+              "Upload bukti pembayaran"
+            ) : (
+              <img src={preview} className="w-24 mx-auto rounded" />
+            )}
+          </label>
 
           <button
             onClick={handlePay}
