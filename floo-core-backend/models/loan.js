@@ -73,14 +73,14 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: "monthly",
       },
 
-      // 🔥 STATUS FLOW (UPDATED)
+      // 🔥 STATUS FLOW
       status: {
         type: DataTypes.STRING,
         allowNull: false,
         defaultValue: "pending_manager",
       },
 
-      // 🔥 APPROVAL TRACKING (NEW)
+      // 🔥 APPROVAL TRACKING
       approved_by_manager: {
         type: DataTypes.INTEGER,
       },
@@ -97,7 +97,33 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATE,
       },
 
-      // 🔥 DISBURSEMENT
+      // 🔥 REJECT (NEW 🔥)
+      reject_reason_manager: {
+        type: DataTypes.TEXT,
+      },
+
+      reject_reason_owner: {
+        type: DataTypes.TEXT,
+      },
+
+      // 🔥 DOCUMENTS
+      loan_agreement: {
+        type: DataTypes.TEXT, // PDF contract
+      },
+
+      signed_contract_url: {
+        type: DataTypes.TEXT, // hasil upload TTD
+      },
+
+      disbursement_proof: {
+        type: DataTypes.TEXT,
+      },
+
+      // 🔥 TIMELINE
+      signed_at: {
+        type: DataTypes.DATE,
+      },
+
       disbursed_at: {
         type: DataTypes.DATE,
       },
@@ -105,21 +131,12 @@ module.exports = (sequelize, DataTypes) => {
       due_date: {
         type: DataTypes.DATE,
       },
-
-      // 🔥 DOCUMENTS (NEW)
-      loan_agreement: {
-        type: DataTypes.TEXT, // URL PDF
-      },
-
-      disbursement_proof: {
-        type: DataTypes.TEXT,
-      },
     },
     {
       sequelize,
       modelName: "Loan",
-      tableName: "Loans", // 🔥 penting buat match Supabase
-      timestamps: true, // createdAt & updatedAt
+      tableName: "Loans",
+      timestamps: true,
     },
   );
 

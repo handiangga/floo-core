@@ -8,9 +8,13 @@ const {
   createLoanSchema,
   updateLoanSchema,
   loanIdParam,
+  rejectSchema,
 } = require("./loan.validation");
 
 const validate = require("../../middlewares/validate.middleware");
+
+// 🔥 FIX DI SINI
+const { upload, processUpload } = require("../../middlewares/upload");
 
 const router = express.Router();
 
@@ -37,6 +41,16 @@ router.post(
   controller.approveManager,
 );
 
+// manager reject
+router.post(
+  "/:id/reject-manager",
+  verifyToken,
+  validate(loanIdParam, "params"),
+  validate(rejectSchema),
+  rbac(["manager"]),
+  controller.rejectManager,
+);
+
 // owner approve
 router.post(
   "/:id/approve-owner",
@@ -44,6 +58,40 @@ router.post(
   validate(loanIdParam, "params"),
   rbac(["owner"]),
   controller.approveOwner,
+);
+
+// owner reject
+router.post(
+  "/:id/reject-owner",
+  verifyToken,
+  validate(loanIdParam, "params"),
+  validate(rejectSchema),
+  rbac(["owner"]),
+  controller.rejectOwner,
+);
+
+// ============================
+// 🔥 SIGNATURE FLOW
+// ============================
+
+// upload TTD
+router.post(
+  "/:id/upload-contract",
+  verifyToken,
+  validate(loanIdParam, "params"),
+  rbac(["admin"]),
+  upload.fields([{ name: "signed_contract", maxCount: 1 }]),
+  processUpload("contracts"), // 🔥 FIX
+  controller.uploadSignedContract,
+);
+
+// disburse
+router.post(
+  "/:id/disburse",
+  verifyToken,
+  validate(loanIdParam, "params"),
+  rbac(["admin"]),
+  controller.disburseLoan,
 );
 
 // ============================

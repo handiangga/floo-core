@@ -5,77 +5,106 @@ const { supabase } = require("../config/supabase");
 // 🔥 memory storage
 const storage = multer.memoryStorage();
 
-// 🔥 filter image only
+// 🔥 allow image + pdf
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith("image/")) {
+  if (
+    file.mimetype.startsWith("image/") ||
+    file.mimetype === "application/pdf"
+  ) {
     cb(null, true);
   } else {
-    cb(new Error("File harus gambar"), false);
+    cb(new Error("File harus image atau PDF"), false);
   }
 };
 
 const upload = multer({ storage, fileFilter });
 
-// 🔥 PROCESS + UPLOAD (DEFAULT: employees)
-const processImage = (bucket = "employees") => {
+// 🔥 PROCESS + UPLOAD
+const processUpload = (bucket = "employees") => {
   return async (req, res, next) => {
     try {
       if (!req.files) return next();
-
-      const dateText = new Date().toLocaleDateString("id-ID");
-
-      const svg = `
-        <svg width="500" height="100">
-          <text x="10" y="50" font-size="24" fill="white">
-            ${dateText}
-          </text>
-        </svg>
-      `;
 
       for (const field in req.files) {
         const files = req.files[field];
 
         for (const file of files) {
-          const filename =
-            Date.now() + "-" + Math.random().toString(9).slice(2) + ".jpg";
+          let buffer = file.buffer;
+          let fileName;
 
-          const processedBuffer = await sharp(file.buffer)
-            .resize(800)
-            .jpeg({ quality: 70 })
-            .composite([
-              {
-                input: Buffer.from(svg),
-                gravity: "southeast",
-              },
-            ])
-            .toBuffer();
+          // =========================
+          // 🔥 HANDLE IMAGE
+          // =========================
+          if (file.mimetype.startsWith("image/")) {
+            const svg = `
+              <svg width="500" height="100">
+                <text x="10" y="50" font-size="24" fill="white">
+                  ${new Date().toLocaleDateString("id-ID")}
+                </text>
+              </svg>
+            `;
 
-          // 🔥 upload ke supabase (dynamic bucket)
+            buffer = await sharp(file.buffer)
+              .resize(800)
+              .jpeg({ quality: 70 })
+              .composite([
+                {
+                  input: Buffer.from(svg),
+                  gravity: "southeast",
+                },
+              ])
+              .toBuffer();
+
+            fileName = `${Date.now()}-${Math.random()
+              .toString(9)
+              .slice(2)}.jpg`;
+          }
+
+          // =========================
+          // 🔥 HANDLE PDF (NO PROCESS)
+          // =========================
+          else if (file.mimetype === "application/pdf") {
+            fileName = `${Date.now()}-${file.originalname}`;
+          }
+
+          // =========================
+          // 🔥 UPLOAD KE SUPABASE
+          // =========================
           const { error } = await supabase.storage
-            .from(bucket) // ✅ fleksibel
-            .upload(filename, processedBuffer, {
-              contentType: "image/jpeg",
+            .from(bucket)
+            .upload(fileName, buffer, {
+              contentType: file.mimetype,
             });
 
           if (error) throw error;
 
-          const { data } = supabase.storage.from(bucket).getPublicUrl(filename);
+          const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
 
-          // 🔥 inject hasil ke req
-          file.filename = filename;
           file.url = data.publicUrl;
         }
       }
-      // 🔥 inject ke body biar controller bisa pakai
-      if (req.files) {
-        const firstField = Object.keys(req.files)[0];
-        const firstFile = req.files[firstField][0];
 
-        if (firstFile?.url) {
-          if (!req.body) req.body = {};
-          req.body.proof = firstFile.url;
-        }
+      // =========================
+      // 🔥 INJECT PER FIELD (FIX)
+      // =========================
+      if (!req.body) req.body = {};
+
+      if (req.files?.proof?.[0]?.url) {
+        req.body.proof = req.files.proof[0].url;
       }
+
+      if (req.files?.signed_contract?.[0]?.url) {
+        req.body.signed_contract = req.files.signed_contract[0].url;
+      }
+
+      if (req.files?.photo?.[0]?.url) {
+        req.body.photo = req.files.photo[0].url;
+      }
+
+      if (req.files?.ktp_photo?.[0]?.url) {
+        req.body.ktp_photo = req.files.ktp_photo[0].url;
+      }
+
       next();
     } catch (err) {
       next(err);
@@ -85,5 +114,5 @@ const processImage = (bucket = "employees") => {
 
 module.exports = {
   upload,
-  processImage,
+  processUpload,
 };
