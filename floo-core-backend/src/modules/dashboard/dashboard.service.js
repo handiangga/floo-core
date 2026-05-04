@@ -4,7 +4,7 @@ const { Op, fn, col, literal } = require("sequelize");
 const { Employee, Loan, Transaction, Cashflow } = db;
 
 // ============================
-// 🔧 HELPER: fill missing dates (optional)
+// 🔧 HELPER: fill missing dates
 // ============================
 const fillDates = (rows, days = 14) => {
   const map = {};
@@ -32,13 +32,13 @@ const fillDates = (rows, days = 14) => {
 };
 
 // ============================
-// 🔥 MAIN SERVICE
+// 🔥 MAIN SERVICE (FIXED)
 // ============================
-const getDashboard = async (user = null) => {
+const getDashboard = async ({ user = {}, start_date, end_date } = {}) => {
   const now = new Date();
 
   // ============================
-  // 🔐 ROLE FILTER (OPTIONAL)
+  // 🔐 ROLE FILTER
   // ============================
   const loanWhere = {};
 
@@ -51,7 +51,7 @@ const getDashboard = async (user = null) => {
   }
 
   // ============================
-  // 🔥 KPI (PARALLEL)
+  // 🔥 KPI
   // ============================
   const [
     totalEmployees,
@@ -123,8 +123,6 @@ const getDashboard = async (user = null) => {
   }
 
   let cashflow = Object.values(grouped);
-
-  // 🔥 optional: isi tanggal kosong (biar chart smooth)
   cashflow = fillDates(cashflow, 14);
 
   // ============================
@@ -144,7 +142,6 @@ const getDashboard = async (user = null) => {
 
   for (const c of cashRaw) {
     const total = Number(c.total) || 0;
-
     if (c.type === "in") totalIn += total;
     if (c.type === "out") totalOut += total;
   }
@@ -179,7 +176,6 @@ const getDashboard = async (user = null) => {
     const employeeName = item.Loan?.Employee?.name;
 
     let label = "-";
-
     if (item.source === "loan") label = "Pinjaman Baru";
     if (item.source === "payment") label = "Pembayaran";
 
@@ -215,9 +211,6 @@ const getDashboard = async (user = null) => {
     total: Number(item.dataValues.total) || 0,
   }));
 
-  // ============================
-  // 🔥 FINAL RESPONSE
-  // ============================
   return {
     summary: {
       totalEmployees,
@@ -228,7 +221,6 @@ const getDashboard = async (user = null) => {
       paidLoans,
       collectionRate: Number(collectionRate.toFixed(2)),
       overdueLoans,
-
       cashBalance,
       cashIn: totalIn,
       cashOut: totalOut,
