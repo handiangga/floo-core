@@ -1,21 +1,28 @@
 const redis = require("../config/redis");
 
-const cache = (prefix) => {
+const cache = (keyGenerator) => {
   return async (req, res, next) => {
     try {
+      // 🔥 kalau redis tidak ready → lanjut aja
       if (!redis) return next();
 
-      // 🔥 KEY LEBIH AMAN (include user + path + query)
-      const userId = req.user?.id || "guest";
-      const key = prefix + req.originalUrl + ":" + userId;
+      let key;
 
-      let cached;
+      try {
+        key =
+          typeof keyGenerator === "function" ? keyGenerator(req) : keyGenerator;
+      } catch (err) {
+        console.log("CACHE KEY ERROR:", err.message);
+        return next();
+      }
+
+      let cached = null;
 
       try {
         cached = await redis.get(key);
       } catch (err) {
         console.log("REDIS GET ERROR:", err.message);
-        return next();
+        return next(); // 🔥 jangan block request
       }
 
       if (cached) {
@@ -26,7 +33,7 @@ const cache = (prefix) => {
 
       res.json = async (body) => {
         try {
-          await redis.setEx(key, 60, JSON.stringify(body)); // 60 detik
+          await redis.setEx(key, 60, JSON.stringify(body));
         } catch (err) {
           console.log("REDIS SET ERROR:", err.message);
         }
@@ -37,7 +44,7 @@ const cache = (prefix) => {
       next();
     } catch (err) {
       console.log("CACHE ERROR:", err.message);
-      next();
+      next(); // 🔥 jangan pernah stop request
     }
   };
 };
