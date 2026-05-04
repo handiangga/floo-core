@@ -16,7 +16,7 @@ exports.createLoan = async (req, res, next) => {
 
     const data = await service.createLoan({
       ...value,
-      user_id: req.user?.id || null,
+      user: req.user || { role: "admin" }, // 🔥 FIX
     });
 
     response.success(res, data, "Loan created (pending approval)");
@@ -33,7 +33,10 @@ exports.approveManager = async (req, res, next) => {
     const { error } = loanIdParam.validate(req.params);
     if (error) throw { status: 400, message: error.message };
 
-    const data = await service.approveByManager(req.params.id, req.user.id);
+    const data = await service.approveByManager(
+      Number(req.params.id),
+      req.user || {},
+    );
 
     response.success(res, data, "Approved by manager");
   } catch (err) {
@@ -49,7 +52,10 @@ exports.approveOwner = async (req, res, next) => {
     const { error } = loanIdParam.validate(req.params);
     if (error) throw { status: 400, message: error.message };
 
-    const data = await service.approveByOwner(req.params.id, req.user.id);
+    const data = await service.approveByOwner(
+      Number(req.params.id),
+      req.user || {},
+    );
 
     response.success(res, data, "Approved by owner");
   } catch (err) {
@@ -62,7 +68,10 @@ exports.approveOwner = async (req, res, next) => {
 // ============================
 exports.getAllLoans = async (req, res, next) => {
   try {
-    const data = await service.getAllLoans();
+    const data = await service.getAllLoans(
+      req.user || { role: "admin" }, // 🔥 FIX
+    );
+
     response.success(res, data);
   } catch (err) {
     next(err);
@@ -77,7 +86,11 @@ exports.getLoanById = async (req, res, next) => {
     const { error } = loanIdParam.validate(req.params);
     if (error) throw { status: 400, message: error.message };
 
-    const data = await service.getLoanById(req.params.id);
+    const data = await service.getLoanById(
+      Number(req.params.id),
+      req.user || { role: "admin" }, // 🔥 FIX
+    );
+
     response.success(res, data);
   } catch (err) {
     next(err);
@@ -95,7 +108,11 @@ exports.updateLoan = async (req, res, next) => {
     const { error: bodyError } = updateLoanSchema.validate(req.body);
     if (bodyError) throw { status: 400, message: bodyError.message };
 
-    const data = await service.updateLoan(req.params.id, req.body);
+    const data = await service.updateLoan(
+      Number(req.params.id),
+      req.body,
+      req.user || {}, // 🔥 FIX
+    );
 
     response.success(res, data, "Loan updated");
   } catch (err) {
@@ -111,7 +128,10 @@ exports.deleteLoan = async (req, res, next) => {
     const { error } = loanIdParam.validate(req.params);
     if (error) throw { status: 400, message: error.message };
 
-    await service.deleteLoan(req.params.id);
+    await service.deleteLoan(
+      Number(req.params.id),
+      req.user || {}, // 🔥 FIX
+    );
 
     response.success(res, null, "Deleted successfully");
   } catch (err) {

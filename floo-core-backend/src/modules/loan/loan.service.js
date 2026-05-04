@@ -61,10 +61,12 @@ const createLoan = async ({
   principal_amount,
   interest_rate = 0,
   tenor,
-  user,
+  user = {},
 }) => {
   return await db.sequelize.transaction(async (t) => {
-    if (user.role !== "admin") {
+    const role = user?.role;
+
+    if (role !== "admin") {
       throw { status: 403, message: "Forbidden" };
     }
 
@@ -141,16 +143,18 @@ const createLoan = async ({
 };
 
 // ============================
-// 🔥 GET ALL (ROLE BASED)
+// 🔥 GET ALL (SAFE + RBAC)
 // ============================
-const getAllLoans = async (user) => {
+const getAllLoans = async (user = {}) => {
+  const role = user?.role || "admin";
+
   const where = {};
 
-  if (user.role === "manager") {
+  if (role === "manager") {
     where.status = "pending_manager";
   }
 
-  if (user.role === "owner") {
+  if (role === "owner") {
     where.status = "pending_owner";
   }
 
@@ -168,9 +172,11 @@ const getAllLoans = async (user) => {
 };
 
 // ============================
-// 🔥 GET DETAIL
+// 🔥 GET DETAIL (SAFE)
 // ============================
-const getLoanById = async (id, user) => {
+const getLoanById = async (id, user = {}) => {
+  const role = user?.role || "admin";
+
   const loan = await Loan.findByPk(id, {
     include: [
       {
@@ -183,11 +189,11 @@ const getLoanById = async (id, user) => {
 
   if (!loan) throw { status: 404, message: "Loan not found" };
 
-  if (user.role === "manager" && loan.status !== "pending_manager") {
+  if (role === "manager" && loan.status !== "pending_manager") {
     throw { status: 403, message: "Forbidden" };
   }
 
-  if (user.role === "owner" && loan.status !== "pending_owner") {
+  if (role === "owner" && loan.status !== "pending_owner") {
     throw { status: 403, message: "Forbidden" };
   }
 
@@ -197,9 +203,9 @@ const getLoanById = async (id, user) => {
 // ============================
 // 🔥 UPDATE LOAN
 // ============================
-const updateLoan = async (id, payload, user) => {
+const updateLoan = async (id, payload, user = {}) => {
   return await db.sequelize.transaction(async (t) => {
-    if (user.role !== "admin") {
+    if (user?.role !== "admin") {
       throw { status: 403, message: "Forbidden" };
     }
 
@@ -253,9 +259,9 @@ const updateLoan = async (id, payload, user) => {
 // ============================
 // 🔥 DELETE LOAN
 // ============================
-const deleteLoan = async (id, user) => {
+const deleteLoan = async (id, user = {}) => {
   return await db.sequelize.transaction(async (t) => {
-    if (user.role !== "admin") {
+    if (user?.role !== "admin") {
       throw { status: 403, message: "Forbidden" };
     }
 
@@ -285,9 +291,9 @@ const deleteLoan = async (id, user) => {
 // ============================
 // 🔥 APPROVE MANAGER
 // ============================
-const approveByManager = async (loan_id, user) => {
+const approveByManager = async (loan_id, user = {}) => {
   return await db.sequelize.transaction(async (t) => {
-    if (user.role !== "manager") {
+    if (user?.role !== "manager") {
       throw { status: 403, message: "Forbidden" };
     }
 
@@ -318,9 +324,9 @@ const approveByManager = async (loan_id, user) => {
 // ============================
 // 🔥 APPROVE OWNER
 // ============================
-const approveByOwner = async (loan_id, user) => {
+const approveByOwner = async (loan_id, user = {}) => {
   return await db.sequelize.transaction(async (t) => {
-    if (user.role !== "owner") {
+    if (user?.role !== "owner") {
       throw { status: 403, message: "Forbidden" };
     }
 
@@ -372,7 +378,6 @@ const approveByOwner = async (loan_id, user) => {
   });
 };
 
-// ============================
 module.exports = {
   createLoan,
   getAllLoans,

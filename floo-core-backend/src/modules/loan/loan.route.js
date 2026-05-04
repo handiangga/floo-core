@@ -4,7 +4,6 @@ const controller = require("./loan.controller");
 const { verifyToken } = require("../../middlewares/auth.middleware");
 const rbac = require("../../middlewares/rbac.middleware");
 
-// 🔥 VALIDATION
 const {
   createLoanSchema,
   updateLoanSchema,
@@ -18,14 +17,18 @@ const router = express.Router();
 // ============================
 // 🔥 SIMULATE
 // ============================
-// 👉 semua user login boleh (opsional)
-router.post("/simulate", verifyToken, controller.simulateLoan);
+router.post(
+  "/simulate",
+  verifyToken,
+  validate(createLoanSchema),
+  controller.simulateLoan,
+);
 
 // ============================
 // 🔥 APPROVAL FLOW
 // ============================
 
-// manager approve step 1
+// manager approve
 router.post(
   "/:id/approve-manager",
   verifyToken,
@@ -34,7 +37,7 @@ router.post(
   controller.approveManager,
 );
 
-// owner approve step 2
+// owner approve
 router.post(
   "/:id/approve-owner",
   verifyToken,
