@@ -35,6 +35,7 @@ const processUpload = (bucket = "employees") => {
             (async () => {
               let buffer = file.buffer;
               let fileName;
+              let contentType = file.mimetype;
 
               // =========================
               // IMAGE
@@ -45,8 +46,10 @@ const processUpload = (bucket = "employees") => {
                     .resize({ width: 800 })
                     .jpeg({ quality: 70 })
                     .toBuffer();
+
+                  contentType = "image/jpeg"; // 🔥 FIX
                 } catch (err) {
-                  console.log("⚠️ Sharp error, fallback original");
+                  console.log("⚠️ Sharp error:", err.message);
                 }
 
                 fileName = `${Date.now()}-${Math.random()
@@ -67,10 +70,14 @@ const processUpload = (bucket = "employees") => {
               const { error } = await supabase.storage
                 .from(bucket)
                 .upload(fileName, buffer, {
-                  contentType: file.mimetype,
+                  contentType,
+                  upsert: true, // 🔥 avoid conflict
                 });
 
-              if (error) throw error;
+              if (error) {
+                console.error("❌ Upload error:", error.message);
+                throw error;
+              }
 
               const { data } = supabase.storage
                 .from(bucket)
@@ -82,8 +89,13 @@ const processUpload = (bucket = "employees") => {
         }
       }
 
-      // 🔥 RUN PARALLEL (INI KUNCI)
-      await Promise.all(uploadTasks);
+      // 🔥 SAFETY TIMEOUT (ANTI HANG)
+      const result = await Promise.race([
+        Promise.all(uploadTasks),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Upload timeout")), 15000),
+        ),
+      ]);
 
       // =========================
       // INJECT BODY
@@ -108,6 +120,7 @@ const processUpload = (bucket = "employees") => {
 
       next();
     } catch (err) {
+      console.error("🔥 PROCESS UPLOAD ERROR:", err);
       next(err);
     }
   };
