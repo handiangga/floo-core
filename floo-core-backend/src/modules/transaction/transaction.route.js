@@ -6,7 +6,7 @@ const rbac = require("../../middlewares/rbac.middleware");
 const cache = require("../../middlewares/cache.middleware");
 
 // ✅ upload middleware
-const { upload, processImage } = require("../../middlewares/upload");
+const { upload, processUpload } = require("../../middlewares/upload");
 
 // validation
 const { transactionIdParam } = require("./transaction.validation");
@@ -51,7 +51,7 @@ router.post(
   ]),
 
   // ✅ upload ke supabase bucket: transaction
-  processImage("transaction"),
+  processUpload("transaction"),
 
   controller.createTransaction,
 );

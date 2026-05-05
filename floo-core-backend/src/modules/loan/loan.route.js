@@ -18,15 +18,15 @@ const { upload, processUpload } = require("../../middlewares/upload");
 
 const router = express.Router();
 
-// ============================
-// 🔥 SIMULATE
-// ============================
-router.post(
-  "/simulate",
-  verifyToken,
-  validate(createLoanSchema),
-  controller.simulateLoan,
-);
+// // ============================
+// // 🔥 SIMULATE
+// // ============================
+// router.post(
+//   "/simulate",
+//   verifyToken,
+//   validate(createLoanSchema),
+//   controller.simulateLoan,
+// );
 
 // ============================
 // 🔥 APPROVAL FLOW
