@@ -55,6 +55,11 @@ export default function LoanInfoCard({ loan }) {
   };
 
   // =========================
+  // REJECT REASON
+  // =========================
+  const rejectReason = loan.reject_reason_manager || loan.reject_reason_owner;
+
+  // =========================
   // PROGRESS COLOR
   // =========================
   const progressColor =
@@ -81,7 +86,7 @@ export default function LoanInfoCard({ loan }) {
           INFO
       ========================= */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-sm">
-        {/* DISBURSED */}
+        {/* TANGGAL CAIR */}
         <div className="bg-gray-50 rounded-2xl p-4">
           <p className="text-gray-400 text-xs mb-1">Tanggal Cair</p>
 
@@ -92,7 +97,7 @@ export default function LoanInfoCard({ loan }) {
           </p>
         </div>
 
-        {/* DUE DATE */}
+        {/* JATUH TEMPO */}
         <div className="bg-gray-50 rounded-2xl p-4">
           <p className="text-gray-400 text-xs mb-1">Jatuh Tempo</p>
 
@@ -120,12 +125,16 @@ export default function LoanInfoCard({ loan }) {
       ========================= */}
       {(loan.status === "rejected_manager" ||
         loan.status === "rejected_owner") &&
-        loan.reject_reason && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-            <p className="text-red-700 font-semibold mb-1">Alasan Penolakan</p>
+        rejectReason && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2 h-2 rounded-full bg-red-500" />
+
+              <p className="text-red-700 font-semibold">Alasan Penolakan</p>
+            </div>
 
             <p className="text-sm text-red-600 leading-relaxed">
-              {loan.reject_reason}
+              {rejectReason}
             </p>
           </div>
         )}
