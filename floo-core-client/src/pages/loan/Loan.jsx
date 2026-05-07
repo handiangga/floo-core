@@ -7,11 +7,13 @@ import useLoan from "../../hooks/useLoan";
 import LoanTable from "../../components/Loan/LoanTable";
 import api from "../../api/api";
 import { formatRupiah } from "../../utils/format";
+import { getUser } from "../../utils/auth";
 
 export default function Loan() {
   const { data = [], loading, refetch } = useLoan();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const user = getUser();
 
   // 🔥 NORMALIZE (ANTI NULL / STRING)
   const normalize = (val) => {
@@ -122,12 +124,14 @@ export default function Loan() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold">Loans</h1>
 
-        <button
-          onClick={() => navigate("/loans/create")}
-          className="bg-blue-500 text-white px-5 py-2 rounded-xl shadow hover:bg-blue-600 transition"
-        >
-          + Tambah Loan
-        </button>
+        {user?.role === "admin" && (
+          <button
+            onClick={() => navigate("/loans/create")}
+            className="bg-blue-500 text-white px-5 py-2 rounded-xl shadow hover:bg-blue-600 transition"
+          >
+            + Tambah Loan
+          </button>
+        )}
       </div>
 
       {/* SUMMARY */}

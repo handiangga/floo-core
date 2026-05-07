@@ -27,24 +27,27 @@ export default function DetailLoan() {
   const [proof, setProof] = useState(null);
   const [preview, setPreview] = useState(null);
 
-  // SIGNATURE
-  const [signature, setSignature] = useState(null);
-
   // =========================
   // FETCH DETAIL
   // =========================
   const fetchDetail = async () => {
     try {
       const res = await api.get(`/loans/${id}`);
+
       setLoan(res.data.data);
     } catch (err) {
-      Swal.fire("Error", "Gagal load loan", "error");
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Gagal load loan",
+        "error",
+      );
+
       navigate("/loans");
     }
   };
 
   // =========================
-  // FETCH TRANSACTIONS
+  // FETCH TRANSACTION
   // =========================
   const fetchTransactions = async () => {
     try {
@@ -74,7 +77,7 @@ export default function DetailLoan() {
   }, [id]);
 
   // =========================
-  // HELPERS
+  // HELPER
   // =========================
   const parseNumber = (val) => {
     if (!val) return 0;
@@ -90,6 +93,9 @@ export default function DetailLoan() {
   const isSigned = loan?.status === "signed";
 
   const isDisbursed = loan?.status === "disbursed";
+
+  const isRejected =
+    loan?.status === "rejected_manager" || loan?.status === "rejected_owner";
 
   // =========================
   // APPROVE MANAGER
@@ -132,7 +138,7 @@ export default function DetailLoan() {
 
       await api.post(`/loans/${loan.id}/reject-manager`, { reason });
 
-      Swal.fire("Success", "Rejected by manager", "success");
+      Swal.fire("Success", "Loan rejected", "success");
 
       navigate("/loans");
     } catch (err) {
@@ -187,7 +193,7 @@ export default function DetailLoan() {
 
       await api.post(`/loans/${loan.id}/reject-owner`, { reason });
 
-      Swal.fire("Success", "Rejected by owner", "success");
+      Swal.fire("Success", "Loan rejected", "success");
 
       navigate("/loans");
     } catch (err) {
@@ -226,8 +232,6 @@ export default function DetailLoan() {
       });
 
       if (!file) return;
-
-      setSignature(file);
 
       setActionLoading(true);
 
@@ -294,7 +298,9 @@ export default function DetailLoan() {
       const formData = new FormData();
 
       formData.append("loan_id", loan.id);
+
       formData.append("amount", amount);
+
       formData.append("proof", proof);
 
       await api.post("/transactions", formData);
@@ -343,44 +349,53 @@ export default function DetailLoan() {
             ← Kembali
           </button>
 
-          <h1 className="text-2xl font-semibold">Loan Detail</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Loan Detail</h1>
 
-          <p className="text-gray-500">{loan.Employee?.name || "-"}</p>
+          <p className="text-gray-500 mt-1">{loan.Employee?.name || "-"}</p>
         </div>
 
-        {/* INFO */}
+        {/* INFO CARD */}
         <LoanInfoCard loan={loan} />
 
         {/* ACTION */}
-        <LoanActions
-          loan={loan}
-          user={user}
-          actionLoading={actionLoading}
-          onApproveManager={handleApproveManager}
-          onRejectManager={handleRejectManager}
-          onApproveOwner={handleApproveOwner}
-          onRejectOwner={handleRejectOwner}
-          onDownloadPdf={handleDownloadPdf}
-          onUploadSignature={handleUploadSignature}
-          onDisburse={handleDisburse}
-        />
+        {!isRejected && (
+          <LoanActions
+            loan={loan}
+            user={user}
+            actionLoading={actionLoading}
+            onApproveManager={handleApproveManager}
+            onRejectManager={handleRejectManager}
+            onApproveOwner={handleApproveOwner}
+            onRejectOwner={handleRejectOwner}
+            onDownloadPdf={handleDownloadPdf}
+            onUploadSignature={handleUploadSignature}
+            onDisburse={handleDisburse}
+          />
+        )}
 
-        {/* STATUS */}
+        {/* STATUS INFO */}
         {isPending && (
-          <div className="bg-yellow-50 p-4 rounded-xl text-yellow-700 text-sm">
-            ⏳ Menunggu approval
+          <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-2xl text-yellow-700">
+            ⏳ Pengajuan sedang menunggu approval
           </div>
         )}
 
         {isApprovedOwner && (
-          <div className="bg-blue-50 p-4 rounded-xl text-blue-700 text-sm">
-            ✍️ Menunggu upload tanda tangan
+          <div className="bg-blue-50 border border-blue-200 p-5 rounded-2xl text-blue-700">
+            📄 Loan sudah disetujui owner. Silakan download PDF dan upload tanda
+            tangan.
           </div>
         )}
 
         {isSigned && (
-          <div className="bg-purple-50 p-4 rounded-xl text-purple-700 text-sm">
-            💰 Siap dicairkan
+          <div className="bg-purple-50 border border-purple-200 p-5 rounded-2xl text-purple-700">
+            ✍️ Dokumen sudah ditandatangani dan siap dicairkan.
+          </div>
+        )}
+
+        {isDisbursed && (
+          <div className="bg-green-50 border border-green-200 p-5 rounded-2xl text-green-700">
+            💰 Dana sudah berhasil dicairkan.
           </div>
         )}
 
