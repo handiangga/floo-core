@@ -18,15 +18,20 @@ export default function DetailLoan() {
 
   const [loan, setLoan] = useState(null);
   const [transactions, setTransactions] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // PAYMENT
   const [payAmount, setPayAmount] = useState("");
   const [proof, setProof] = useState(null);
   const [preview, setPreview] = useState(null);
 
+  // SIGNATURE
+  const [signature, setSignature] = useState(null);
+
   // =========================
-  // 🔥 FETCH DATA
+  // FETCH DETAIL
   // =========================
   const fetchDetail = async () => {
     try {
@@ -38,20 +43,30 @@ export default function DetailLoan() {
     }
   };
 
+  // =========================
+  // FETCH TRANSACTIONS
+  // =========================
   const fetchTransactions = async () => {
     try {
       const res = await api.get(`/transactions?loan_id=${id}`);
+
       const trx = res.data?.data?.data || [];
+
       setTransactions(Array.isArray(trx) ? trx : []);
     } catch {
       setTransactions([]);
     }
   };
 
+  // =========================
+  // INIT
+  // =========================
   useEffect(() => {
     const init = async () => {
       setLoading(true);
+
       await Promise.all([fetchDetail(), fetchTransactions()]);
+
       setLoading(false);
     };
 
@@ -59,82 +74,237 @@ export default function DetailLoan() {
   }, [id]);
 
   // =========================
-  // 🔥 HELPERS
+  // HELPERS
   // =========================
   const parseNumber = (val) => {
     if (!val) return 0;
+
     return Number(val.toString().replace(/\./g, "")) || 0;
   };
 
   const isPending =
     loan?.status === "pending_manager" || loan?.status === "pending_owner";
 
-  const isOngoing = loan?.status === "ongoing";
+  const isApprovedOwner = loan?.status === "approved_owner";
+
+  const isSigned = loan?.status === "signed";
+
+  const isDisbursed = loan?.status === "disbursed";
 
   // =========================
-  // 🔥 APPROVAL
+  // APPROVE MANAGER
   // =========================
   const handleApproveManager = async () => {
     try {
       setActionLoading(true);
-      await api.post(`/loans/${loan.id}/approve-manager`);
-      Swal.fire("Success", "Approved by manager", "success");
-      navigate("/loans");
-    } catch {
-      Swal.fire("Error", "Gagal approve", "error");
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
-  const handleApproveOwner = async () => {
-    try {
-      setActionLoading(true);
-      await api.post(`/loans/${loan.id}/approve-owner`);
-      Swal.fire("Success", "Approved by owner", "success");
-      navigate("/loans");
-    } catch {
-      Swal.fire("Error", "Gagal approve", "error");
+      await api.post(`/loans/${loan.id}/approve-manager`);
+
+      Swal.fire("Success", "Approved by manager", "success");
+
+      await fetchDetail();
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Gagal approve",
+        "error",
+      );
     } finally {
       setActionLoading(false);
     }
   };
 
   // =========================
-  // 🔥 PAYMENT (FIX FINAL)
+  // REJECT MANAGER
+  // =========================
+  const handleRejectManager = async () => {
+    try {
+      const { value: reason } = await Swal.fire({
+        title: "Reject reason",
+        input: "text",
+        inputPlaceholder: "Masukkan alasan reject",
+        showCancelButton: true,
+      });
+
+      if (!reason) return;
+
+      setActionLoading(true);
+
+      await api.post(`/loans/${loan.id}/reject-manager`, { reason });
+
+      Swal.fire("Success", "Rejected by manager", "success");
+
+      navigate("/loans");
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Gagal reject",
+        "error",
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // =========================
+  // APPROVE OWNER
+  // =========================
+  const handleApproveOwner = async () => {
+    try {
+      setActionLoading(true);
+
+      await api.post(`/loans/${loan.id}/approve-owner`);
+
+      Swal.fire("Success", "Approved by owner", "success");
+
+      await fetchDetail();
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Gagal approve",
+        "error",
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // =========================
+  // REJECT OWNER
+  // =========================
+  const handleRejectOwner = async () => {
+    try {
+      const { value: reason } = await Swal.fire({
+        title: "Reject reason",
+        input: "text",
+        inputPlaceholder: "Masukkan alasan reject",
+        showCancelButton: true,
+      });
+
+      if (!reason) return;
+
+      setActionLoading(true);
+
+      await api.post(`/loans/${loan.id}/reject-owner`, { reason });
+
+      Swal.fire("Success", "Rejected by owner", "success");
+
+      navigate("/loans");
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Gagal reject",
+        "error",
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // =========================
+  // DOWNLOAD PDF
+  // =========================
+  const handleDownloadPdf = () => {
+    window.open(
+      `${import.meta.env.VITE_API_URL}/loans/${loan.id}/pdf`,
+      "_blank",
+    );
+  };
+
+  // =========================
+  // UPLOAD SIGNATURE
+  // =========================
+  const handleUploadSignature = async () => {
+    try {
+      const { value: file } = await Swal.fire({
+        title: "Upload Tanda Tangan",
+        input: "file",
+        inputAttributes: {
+          accept: "image/*,.pdf",
+        },
+        showCancelButton: true,
+      });
+
+      if (!file) return;
+
+      setSignature(file);
+
+      setActionLoading(true);
+
+      const formData = new FormData();
+
+      formData.append("signed_contract", file);
+
+      await api.post(`/loans/${loan.id}/upload-signed-contract`, formData);
+
+      Swal.fire("Success", "TTD berhasil upload", "success");
+
+      await fetchDetail();
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Gagal upload TTD",
+        "error",
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // =========================
+  // DISBURSE
+  // =========================
+  const handleDisburse = async () => {
+    try {
+      setActionLoading(true);
+
+      await api.post(`/loans/${loan.id}/disburse`);
+
+      Swal.fire("Success", "Dana berhasil dicairkan", "success");
+
+      await fetchDetail();
+    } catch (err) {
+      Swal.fire(
+        "Error",
+        err.response?.data?.message || "Gagal cairkan dana",
+        "error",
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // =========================
+  // PAYMENT
   // =========================
   const handlePay = async () => {
     try {
       const amount = parseNumber(payAmount);
 
-      // validasi nominal
       if (!amount || amount <= 0) {
         return Swal.fire("Error", "Nominal tidak valid", "error");
       }
 
-      // 🔥 WAJIB upload bukti
       if (!proof) {
         return Swal.fire("Error", "Upload bukti pembayaran dulu", "error");
       }
 
       setActionLoading(true);
 
-      // 🔥 LANGSUNG FORM DATA (TANPA /upload)
       const formData = new FormData();
+
       formData.append("loan_id", loan.id);
       formData.append("amount", amount);
-      formData.append("proof", proof); // wajib "proof"
+      formData.append("proof", proof);
 
       await api.post("/transactions", formData);
 
       Swal.fire("Success", "Pembayaran berhasil", "success");
 
-      // reset state
       setPayAmount("");
       setProof(null);
       setPreview(null);
 
-      // refresh data
       await Promise.all([fetchDetail(), fetchTransactions()]);
     } catch (err) {
       Swal.fire(
@@ -148,7 +318,7 @@ export default function DetailLoan() {
   };
 
   // =========================
-  // 🔥 LOADING
+  // LOADING
   // =========================
   if (loading || !loan) {
     return (
@@ -159,7 +329,7 @@ export default function DetailLoan() {
   }
 
   // =========================
-  // 🔥 UI
+  // UI
   // =========================
   return (
     <Layout>
@@ -174,6 +344,7 @@ export default function DetailLoan() {
           </button>
 
           <h1 className="text-2xl font-semibold">Loan Detail</h1>
+
           <p className="text-gray-500">{loan.Employee?.name || "-"}</p>
         </div>
 
@@ -186,18 +357,35 @@ export default function DetailLoan() {
           user={user}
           actionLoading={actionLoading}
           onApproveManager={handleApproveManager}
+          onRejectManager={handleRejectManager}
           onApproveOwner={handleApproveOwner}
+          onRejectOwner={handleRejectOwner}
+          onDownloadPdf={handleDownloadPdf}
+          onUploadSignature={handleUploadSignature}
+          onDisburse={handleDisburse}
         />
 
         {/* STATUS */}
         {isPending && (
-          <div className="bg-yellow-50 p-4 rounded-xl text-yellow-600 text-sm">
-            ⏳ Menunggu approval sebelum bisa dibayar
+          <div className="bg-yellow-50 p-4 rounded-xl text-yellow-700 text-sm">
+            ⏳ Menunggu approval
+          </div>
+        )}
+
+        {isApprovedOwner && (
+          <div className="bg-blue-50 p-4 rounded-xl text-blue-700 text-sm">
+            ✍️ Menunggu upload tanda tangan
+          </div>
+        )}
+
+        {isSigned && (
+          <div className="bg-purple-50 p-4 rounded-xl text-purple-700 text-sm">
+            💰 Siap dicairkan
           </div>
         )}
 
         {/* PAYMENT */}
-        {isOngoing && (
+        {isDisbursed && (
           <LoanPayment
             loan={loan}
             payAmount={payAmount}
