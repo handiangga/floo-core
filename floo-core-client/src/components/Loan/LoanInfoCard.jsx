@@ -23,6 +23,11 @@ export default function LoanInfoCard({ loan }) {
       color: "bg-orange-100 text-orange-700",
     },
 
+    waiting_signature: {
+      label: "Menunggu TTD",
+      color: "bg-indigo-100 text-indigo-700",
+    },
+
     approved_owner: {
       label: "Disetujui Owner",
       color: "bg-blue-100 text-blue-700",

@@ -88,7 +88,7 @@ export default function DetailLoan() {
   const isPending =
     loan?.status === "pending_manager" || loan?.status === "pending_owner";
 
-  const isApprovedOwner = loan?.status === "approved_owner";
+  const isWaitingSignature = loan?.status === "waiting_signature";
 
   const isSigned = loan?.status === "signed";
 
@@ -380,8 +380,8 @@ export default function DetailLoan() {
           </div>
         )}
 
-        {isApprovedOwner && (
-          <div className="bg-blue-50 border border-blue-200 p-5 rounded-2xl text-blue-700">
+        {isWaitingSignature && (
+          <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-2xl text-indigo-700">
             📄 Loan sudah disetujui owner. Silakan download PDF dan upload tanda
             tangan.
           </div>
