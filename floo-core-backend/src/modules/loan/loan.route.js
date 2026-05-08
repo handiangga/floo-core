@@ -13,20 +13,9 @@ const {
 
 const validate = require("../../middlewares/validate.middleware");
 
-// 🔥 FIX DI SINI
 const { upload, processUpload } = require("../../middlewares/upload");
 
 const router = express.Router();
-
-// // ============================
-// // 🔥 SIMULATE
-// // ============================
-// router.post(
-//   "/simulate",
-//   verifyToken,
-//   validate(createLoanSchema),
-//   controller.simulateLoan,
-// );
 
 // ============================
 // 🔥 APPROVAL FLOW
@@ -71,6 +60,18 @@ router.post(
 );
 
 // ============================
+// 🔥 PDF
+// ============================
+
+router.get(
+  "/:id/pdf",
+  verifyToken,
+  validate(loanIdParam, "params"),
+  rbac(["admin", "owner"]),
+  controller.generateLoanPdf,
+);
+
+// ============================
 // 🔥 SIGNATURE FLOW
 // ============================
 
@@ -80,8 +81,13 @@ router.post(
   verifyToken,
   validate(loanIdParam, "params"),
   rbac(["admin"]),
-  upload.fields([{ name: "signed_contract", maxCount: 1 }]),
-  processUpload("contracts"), // 🔥 FIX
+  upload.fields([
+    {
+      name: "signed_contract",
+      maxCount: 1,
+    },
+  ]),
+  processUpload("contracts"),
   controller.uploadSignedContract,
 );
 
@@ -97,6 +103,7 @@ router.post(
 // ============================
 // 🔥 GET ALL
 // ============================
+
 router.get(
   "/",
   verifyToken,
@@ -107,6 +114,7 @@ router.get(
 // ============================
 // 🔥 GET DETAIL
 // ============================
+
 router.get(
   "/:id",
   verifyToken,
@@ -118,6 +126,7 @@ router.get(
 // ============================
 // 🔥 CREATE
 // ============================
+
 router.post(
   "/",
   verifyToken,
@@ -129,6 +138,7 @@ router.post(
 // ============================
 // 🔥 UPDATE
 // ============================
+
 router.put(
   "/:id",
   verifyToken,
@@ -141,6 +151,7 @@ router.put(
 // ============================
 // 🔥 DELETE
 // ============================
+
 router.delete(
   "/:id",
   verifyToken,

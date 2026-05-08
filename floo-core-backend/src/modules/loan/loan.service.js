@@ -4,7 +4,8 @@ const { Op } = require("sequelize");
 const { clearAllCache } = require("../../utils/cache");
 const { logAudit } = require("../../utils/audit");
 
-const generateLoanPdf = require("../../utils/generateLoanPdf");
+// 🔥 RENAME UTIL
+const generateLoanPdfUtil = require("../../utils/generateLoanPdf");
 
 const { Loan, Employee, Cashflow } = db;
 
@@ -15,15 +16,24 @@ const calculateLoan = (employee, principal, interest_rate = 0, tenorInput) => {
   const salary = Number(employee.salary || 0);
   const salaryType = employee.salary_type;
 
-  if (!salary) throw { status: 400, message: "Gaji tidak valid" };
+  if (!salary) {
+    throw {
+      status: 400,
+      message: "Gaji tidak valid",
+    };
+  }
 
   const maxInstallment = salary * 0.5;
 
   if (principal > salary * 2) {
-    throw { status: 400, message: "Max pinjaman = 2x gaji" };
+    throw {
+      status: 400,
+      message: "Max pinjaman = 2x gaji",
+    };
   }
 
   const interest = Math.round(principal * (interest_rate / 100));
+
   const total = principal + interest;
 
   let tenor;
@@ -33,18 +43,29 @@ const calculateLoan = (employee, principal, interest_rate = 0, tenorInput) => {
   if (salaryType === "weekly") {
     type = "weekly";
     tenor = tenorInput || 4;
+
     installment = Math.ceil(total / tenor);
   } else {
     type = "monthly";
     tenor = tenorInput || 3;
+
     installment = Math.ceil(total / tenor);
   }
 
   if (installment > maxInstallment) {
-    throw { status: 400, message: "Cicilan > 50% gaji" };
+    throw {
+      status: 400,
+      message: "Cicilan > 50% gaji",
+    };
   }
 
-  return { tenor, installment, type, interest, total };
+  return {
+    tenor,
+    installment,
+    type,
+    interest,
+    total,
+  };
 };
 
 // ============================
@@ -53,7 +74,10 @@ const calculateLoan = (employee, principal, interest_rate = 0, tenorInput) => {
 const createLoan = async (payload, user = {}) => {
   return await db.sequelize.transaction(async (t) => {
     if (user.role !== "admin") {
-      throw { status: 403, message: "Forbidden" };
+      throw {
+        status: 403,
+        message: "Forbidden",
+      };
     }
 
     const employee = await Employee.findByPk(payload.employee_id, {
@@ -61,7 +85,12 @@ const createLoan = async (payload, user = {}) => {
       lock: t.LOCK.UPDATE,
     });
 
-    if (!employee) throw { status: 404, message: "Employee not found" };
+    if (!employee) {
+      throw {
+        status: 404,
+        message: "Employee not found",
+      };
+    }
 
     const existingLoan = await Loan.findOne({
       where: {
@@ -80,7 +109,10 @@ const createLoan = async (payload, user = {}) => {
     });
 
     if (existingLoan) {
-      throw { status: 400, message: "Masih ada loan aktif" };
+      throw {
+        status: 400,
+        message: "Masih ada loan aktif",
+      };
     }
 
     const result = calculateLoan(
@@ -91,6 +123,7 @@ const createLoan = async (payload, user = {}) => {
     );
 
     let dueDate = new Date();
+
     if (result.type === "monthly") {
       dueDate.setMonth(dueDate.getMonth() + result.tenor);
     } else {
@@ -100,18 +133,30 @@ const createLoan = async (payload, user = {}) => {
     const loan = await Loan.create(
       {
         employee_id: payload.employee_id,
+
         principal_amount: payload.principal_amount,
+
         interest_amount: result.interest,
+
         interest_rate: payload.interest_rate,
+
         total_amount: result.total,
+
         remaining_amount: result.total,
+
         tenor: result.tenor,
+
         installment: result.installment,
+
         type: result.type,
+
         status: "pending_manager",
+
         due_date: dueDate,
       },
-      { transaction: t },
+      {
+        transaction: t,
+      },
     );
 
     await clearAllCache();
@@ -133,7 +178,13 @@ const createLoan = async (payload, user = {}) => {
 // ============================
 const getAllLoans = async () => {
   return await Loan.findAll({
-    include: [{ model: Employee, as: "Employee" }],
+    include: [
+      {
+        model: Employee,
+        as: "Employee",
+      },
+    ],
+
     order: [["createdAt", "DESC"]],
   });
 };
@@ -143,7 +194,12 @@ const getAllLoans = async () => {
 // ============================
 const getLoanById = async (id) => {
   return await Loan.findByPk(id, {
-    include: [{ model: Employee, as: "Employee" }],
+    include: [
+      {
+        model: Employee,
+        as: "Employee",
+      },
+    ],
   });
 };
 
@@ -151,7 +207,10 @@ const getLoanById = async (id) => {
 // 🔥 UPDATE
 // ============================
 const updateLoan = async (id, payload) => {
-  await Loan.update(payload, { where: { id } });
+  await Loan.update(payload, {
+    where: { id },
+  });
+
   return await getLoanById(id);
 };
 
@@ -159,7 +218,9 @@ const updateLoan = async (id, payload) => {
 // 🔥 DELETE
 // ============================
 const deleteLoan = async (id) => {
-  return await Loan.destroy({ where: { id } });
+  return await Loan.destroy({
+    where: { id },
+  });
 };
 
 // ============================
@@ -168,7 +229,12 @@ const deleteLoan = async (id) => {
 const simulateLoan = async (payload) => {
   const employee = await Employee.findByPk(payload.employee_id);
 
-  if (!employee) throw { status: 404, message: "Employee not found" };
+  if (!employee) {
+    throw {
+      status: 404,
+      message: "Employee not found",
+    };
+  }
 
   return calculateLoan(
     employee,
@@ -184,7 +250,10 @@ const simulateLoan = async (payload) => {
 const approveByManager = async (loan_id, user = {}) => {
   return await db.sequelize.transaction(async (t) => {
     if (user.role !== "manager") {
-      throw { status: 403, message: "Forbidden" };
+      throw {
+        status: 403,
+        message: "Forbidden",
+      };
     }
 
     const loan = await Loan.findByPk(loan_id, {
@@ -192,19 +261,31 @@ const approveByManager = async (loan_id, user = {}) => {
       lock: t.LOCK.UPDATE,
     });
 
-    if (!loan) throw { status: 404, message: "Loan not found" };
+    if (!loan) {
+      throw {
+        status: 404,
+        message: "Loan not found",
+      };
+    }
 
     if (loan.status !== "pending_manager") {
-      throw { status: 400, message: "Invalid status" };
+      throw {
+        status: 400,
+        message: "Invalid status",
+      };
     }
 
     await loan.update(
       {
         status: "pending_owner",
+
         approved_by_manager: user.id,
+
         approved_at_manager: new Date(),
       },
-      { transaction: t },
+      {
+        transaction: t,
+      },
     );
 
     return loan;
@@ -214,46 +295,74 @@ const approveByManager = async (loan_id, user = {}) => {
 // ============================
 // 🔥 REJECT MANAGER
 // ============================
-const rejectByManager = async (loan_id, reason, user = {}) => {
+const rejectByManager = async (loan_id, reason) => {
   const loan = await Loan.findByPk(loan_id);
 
-  if (!loan) throw { status: 404, message: "Loan not found" };
+  if (!loan) {
+    throw {
+      status: 404,
+      message: "Loan not found",
+    };
+  }
 
   if (loan.status !== "pending_manager") {
-    throw { status: 400, message: "Invalid status" };
+    throw {
+      status: 400,
+      message: "Invalid status",
+    };
   }
 
   return await loan.update({
     status: "rejected_manager",
+
     reject_reason_manager: reason,
   });
 };
 
 // ============================
-// 🔥 APPROVE OWNER + PDF
+// 🔥 APPROVE OWNER
 // ============================
 const approveByOwner = async (loan_id, user = {}) => {
   if (user.role !== "owner") {
-    throw { status: 403, message: "Forbidden" };
+    throw {
+      status: 403,
+      message: "Forbidden",
+    };
   }
 
   const loan = await Loan.findByPk(loan_id, {
-    include: [{ model: Employee, as: "Employee" }],
+    include: [
+      {
+        model: Employee,
+        as: "Employee",
+      },
+    ],
   });
 
-  if (!loan) throw { status: 404, message: "Loan not found" };
-
-  if (loan.status !== "pending_owner") {
-    throw { status: 400, message: "Invalid status" };
+  if (!loan) {
+    throw {
+      status: 404,
+      message: "Loan not found",
+    };
   }
 
-  // 🔥 generate PDF (OUTSIDE transaction)
-  const contractUrl = await generateLoanPdf(loan, loan.Employee);
+  if (loan.status !== "pending_owner") {
+    throw {
+      status: 400,
+      message: "Invalid status",
+    };
+  }
+
+  // 🔥 GENERATE PDF
+  const contractUrl = await generateLoanPdfUtil(loan, loan.Employee);
 
   await loan.update({
     status: "waiting_signature",
+
     approved_by_owner: user.id,
+
     approved_at_owner: new Date(),
+
     loan_agreement: contractUrl,
   });
 
@@ -266,16 +375,59 @@ const approveByOwner = async (loan_id, user = {}) => {
 const rejectByOwner = async (loan_id, reason) => {
   const loan = await Loan.findByPk(loan_id);
 
-  if (!loan) throw { status: 404, message: "Loan not found" };
+  if (!loan) {
+    throw {
+      status: 404,
+      message: "Loan not found",
+    };
+  }
 
   if (loan.status !== "pending_owner") {
-    throw { status: 400, message: "Invalid status" };
+    throw {
+      status: 400,
+      message: "Invalid status",
+    };
   }
 
   return await loan.update({
     status: "rejected_owner",
+
     reject_reason_owner: reason,
   });
+};
+
+// ============================
+// 🔥 GENERATE PDF BUFFER
+// ============================
+const generateLoanPdf = async (loan_id) => {
+  const loan = await Loan.findByPk(loan_id, {
+    include: [
+      {
+        model: Employee,
+        as: "Employee",
+      },
+    ],
+  });
+
+  if (!loan) {
+    throw {
+      status: 404,
+      message: "Loan not found",
+    };
+  }
+
+  if (!loan.loan_agreement) {
+    throw {
+      status: 400,
+      message: "PDF belum dibuat",
+    };
+  }
+
+  const response = await fetch(loan.loan_agreement);
+
+  const arrayBuffer = await response.arrayBuffer();
+
+  return Buffer.from(arrayBuffer);
 };
 
 // ============================
@@ -284,15 +436,25 @@ const rejectByOwner = async (loan_id, reason) => {
 const uploadSignedContract = async (loan_id, fileUrl) => {
   const loan = await Loan.findByPk(loan_id);
 
-  if (!loan) throw { status: 404, message: "Loan not found" };
+  if (!loan) {
+    throw {
+      status: 404,
+      message: "Loan not found",
+    };
+  }
 
   if (loan.status !== "waiting_signature") {
-    throw { status: 400, message: "Status tidak valid" };
+    throw {
+      status: 400,
+      message: "Status tidak valid",
+    };
   }
 
   await loan.update({
     signed_contract_url: fileUrl,
+
     status: "signed",
+
     signed_at: new Date(),
   });
 
@@ -305,7 +467,10 @@ const uploadSignedContract = async (loan_id, fileUrl) => {
 const disburseLoan = async (loan_id, user = {}) => {
   return await db.sequelize.transaction(async (t) => {
     if (user.role !== "admin") {
-      throw { status: 403, message: "Forbidden" };
+      throw {
+        status: 403,
+        message: "Forbidden",
+      };
     }
 
     const loan = await Loan.findByPk(loan_id, {
@@ -313,10 +478,18 @@ const disburseLoan = async (loan_id, user = {}) => {
       lock: t.LOCK.UPDATE,
     });
 
-    if (!loan) throw { status: 404, message: "Loan not found" };
+    if (!loan) {
+      throw {
+        status: 404,
+        message: "Loan not found",
+      };
+    }
 
     if (loan.status !== "signed") {
-      throw { status: 400, message: "Belum tanda tangan" };
+      throw {
+        status: 400,
+        message: "Belum tanda tangan",
+      };
     }
 
     const now = new Date();
@@ -324,20 +497,29 @@ const disburseLoan = async (loan_id, user = {}) => {
     await loan.update(
       {
         status: "ongoing",
+
         disbursed_at: now,
       },
-      { transaction: t },
+      {
+        transaction: t,
+      },
     );
 
     await Cashflow.create(
       {
         type: "out",
+
         amount: loan.total_amount,
+
         source: "loan",
+
         reference_id: loan.id,
+
         note: "Pencairan pinjaman",
       },
-      { transaction: t },
+      {
+        transaction: t,
+      },
     );
 
     await clearAllCache();
@@ -362,6 +544,8 @@ module.exports = {
 
   approveByOwner,
   rejectByOwner,
+
+  generateLoanPdf,
 
   uploadSignedContract,
   disburseLoan,

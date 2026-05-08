@@ -108,6 +108,38 @@ exports.rejectOwner = async (req, res, next) => {
 };
 
 // ============================
+// 🔥 GENERATE PDF
+// ============================
+exports.generateLoanPdf = async (req, res, next) => {
+  try {
+    const { error } = loanIdParam.validate(req.params);
+
+    if (error) {
+      throw {
+        status: 400,
+        message: error.message,
+      };
+    }
+
+    const pdfBuffer = await service.generateLoanPdf(
+      Number(req.params.id),
+      req.user || {},
+    );
+
+    res.setHeader("Content-Type", "application/pdf");
+
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename=loan-${req.params.id}.pdf`,
+    );
+
+    res.send(pdfBuffer);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ============================
 // 🔥 UPLOAD SIGNED CONTRACT (FIXED 🔥)
 // ============================
 exports.uploadSignedContract = async (req, res, next) => {
