@@ -374,10 +374,8 @@ export default function DetailLoan() {
 
           <p className="text-gray-500 mt-1">{loan.Employee?.name || "-"}</p>
         </div>
-
         {/* INFO CARD */}
         <LoanInfoCard loan={loan} />
-
         {/* DISBURSE PROOF */}
         {isSigned && user?.role === "admin" && (
           <div className="bg-white border rounded-2xl p-5 space-y-4">
@@ -399,7 +397,6 @@ export default function DetailLoan() {
             )}
           </div>
         )}
-
         {/* ACTION */}
         {!isRejected && (
           <LoanActions
@@ -415,7 +412,6 @@ export default function DetailLoan() {
             onDisburse={handleDisburse}
           />
         )}
-
         {/* STATUS INFO */}
         {isPending && (
           <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-2xl text-yellow-700">
@@ -423,33 +419,193 @@ export default function DetailLoan() {
           </div>
         )}
 
+        {/* WAITING SIGNATURE */}
         {isWaitingSignature && (
-          <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-2xl text-indigo-700">
-            📄 Loan sudah disetujui owner. Silakan download PDF dan upload tanda
-            tangan.
-          </div>
-        )}
+          <div className="space-y-5">
+            {/* INFO */}
+            <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-2xl text-indigo-700">
+              📄 Loan sudah disetujui owner. Silakan download PDF dan upload
+              tanda tangan.
+            </div>
 
-        {isSigned && (
-          <div className="bg-purple-50 border border-purple-200 p-5 rounded-2xl text-purple-700">
-            ✍️ Dokumen sudah ditandatangani dan siap dicairkan.
-          </div>
-        )}
+            {/* SIGNED CONTRACT */}
+            {loan.signed_contract_url && (
+              <div className="bg-violet-50 border border-violet-200 rounded-3xl p-6">
+                <p className="text-violet-700 font-medium mb-4">
+                  ✍️ Dokumen perjanjian sudah ditandatangani.
+                </p>
 
-        {isDisbursed && (
-          <div className="bg-green-50 border border-green-200 p-5 rounded-2xl text-green-700 space-y-3">
-            <div>💰 Dana sudah berhasil dicairkan.</div>
+                <div className="flex gap-3 flex-wrap">
+                  {/* VIEW */}
+                  <button
+                    onClick={() =>
+                      Swal.fire({
+                        title: "Dokumen TTD",
+                        html: `
+                  <iframe
+                    src="${loan.signed_contract_url}"
+                    width="100%"
+                    height="600px"
+                    style="border:none;border-radius:12px;"
+                  ></iframe>
+                `,
+                        width: 900,
+                        showCloseButton: true,
+                        showConfirmButton: false,
+                      })
+                    }
+                    className="bg-violet-600 hover:bg-violet-700 text-white px-5 py-3 rounded-2xl transition font-medium"
+                  >
+                    Lihat TTD
+                  </button>
 
-            {loan?.disbursement_proof && (
-              <a
-                href={loan.disbursement_proof}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex bg-green-600 text-white px-4 py-2 rounded-xl text-sm"
-              >
-                Lihat Bukti Pencairan
-              </a>
+                  {/* DOWNLOAD */}
+                  <a
+                    href={loan.signed_contract_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="bg-white border border-violet-300 text-violet-700 px-5 py-3 rounded-2xl hover:bg-violet-100 transition font-medium"
+                  >
+                    Download TTD
+                  </a>
+                </div>
+              </div>
             )}
+          </div>
+        )}
+
+        {/* SIGNED */}
+        {isSigned && (
+          <div className="space-y-5">
+            <div className="bg-purple-50 border border-purple-200 p-5 rounded-2xl text-purple-700">
+              ✍️ Dokumen sudah ditandatangani dan siap dicairkan.
+            </div>
+
+            {/* SIGNED CONTRACT */}
+            {loan.signed_contract_url && (
+              <div className="bg-violet-50 border border-violet-200 rounded-3xl p-6">
+                <p className="text-violet-700 font-medium mb-4">
+                  ✍️ Dokumen perjanjian sudah ditandatangani.
+                </p>
+
+                <div className="flex gap-3 flex-wrap">
+                  {/* VIEW */}
+                  <button
+                    onClick={() =>
+                      Swal.fire({
+                        title: "Dokumen TTD",
+                        html: `
+                  <iframe
+                    src="${loan.signed_contract_url}"
+                    width="100%"
+                    height="600px"
+                    style="border:none;border-radius:12px;"
+                  ></iframe>
+                `,
+                        width: 900,
+                        showCloseButton: true,
+                        showConfirmButton: false,
+                      })
+                    }
+                    className="bg-violet-600 hover:bg-violet-700 text-white px-5 py-3 rounded-2xl transition font-medium"
+                  >
+                    Lihat TTD
+                  </button>
+
+                  {/* DOWNLOAD */}
+                  <a
+                    href={loan.signed_contract_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="bg-white border border-violet-300 text-violet-700 px-5 py-3 rounded-2xl hover:bg-violet-100 transition font-medium"
+                  >
+                    Download TTD
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* DISBURSED */}
+        {isDisbursed && (
+          <div className="space-y-5">
+            {/* INFO */}
+            <div className="bg-green-50 border border-green-200 p-5 rounded-2xl text-green-700">
+              💰 Dana sudah berhasil dicairkan.
+            </div>
+
+            {/* ACTION CARDS */}
+            <div className="grid md:grid-cols-2 gap-5">
+              {/* TTD */}
+              {loan?.signed_contract_url && (
+                <div className="bg-violet-50 border border-violet-200 rounded-3xl p-6">
+                  <p className="text-violet-700 font-semibold mb-4">
+                    ✍️ Dokumen TTD
+                  </p>
+
+                  <div className="flex gap-3 flex-wrap">
+                    {/* VIEW */}
+                    <button
+                      onClick={() =>
+                        Swal.fire({
+                          title: "Dokumen TTD",
+                          html: `
+                    <iframe
+                      src="${loan.signed_contract_url}"
+                      width="100%"
+                      height="600px"
+                      style="border:none;border-radius:12px;"
+                    ></iframe>
+                  `,
+                          width: 900,
+                          showCloseButton: true,
+                          showConfirmButton: false,
+                        })
+                      }
+                      className="bg-violet-600 hover:bg-violet-700 text-white px-5 py-3 rounded-2xl transition font-medium"
+                    >
+                      Lihat TTD
+                    </button>
+
+                    {/* DOWNLOAD */}
+                    <a
+                      href={loan.signed_contract_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-white border border-violet-300 text-violet-700 px-5 py-3 rounded-2xl hover:bg-violet-100 transition font-medium"
+                    >
+                      Download
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* DISBURSEMENT */}
+              {loan?.disbursement_proof && (
+                <div className="bg-green-50 border border-green-200 rounded-3xl p-6">
+                  <p className="text-green-700 font-semibold mb-4">
+                    💰 Bukti Pencairan
+                  </p>
+
+                  <button
+                    onClick={() =>
+                      Swal.fire({
+                        imageUrl: loan.disbursement_proof,
+                        imageAlt: "Bukti Pencairan",
+                        width: 700,
+                        showConfirmButton: false,
+                        showCloseButton: true,
+                        background: "#fff",
+                      })
+                    }
+                    className="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-2xl transition font-medium"
+                  >
+                    Lihat Bukti
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -468,7 +624,6 @@ export default function DetailLoan() {
             setPreview={setPreview}
           />
         )}
-
         {/* HISTORY */}
         <LoanHistory transactions={transactions} />
       </div>
