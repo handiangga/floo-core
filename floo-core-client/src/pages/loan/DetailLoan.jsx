@@ -210,11 +210,43 @@ export default function DetailLoan() {
   // =========================
   // DOWNLOAD PDF
   // =========================
-  const handleDownloadPdf = () => {
-    window.open(
-      `${import.meta.env.VITE_API_URL}/loans/${loan.id}/pdf`,
-      "_blank",
-    );
+  const handleDownloadPdf = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/loans/${id}/pdf`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Gagal download PDF");
+      }
+
+      const blob = await response.blob();
+
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+
+      a.href = url;
+
+      a.download = `loan-${id}.pdf`;
+
+      document.body.appendChild(a);
+
+      a.click();
+
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      Swal.fire("Error", err.message, "error");
+    }
   };
 
   // =========================
