@@ -27,6 +27,9 @@ export default function DetailLoan() {
   const [proof, setProof] = useState(null);
   const [preview, setPreview] = useState(null);
 
+  // DISBURSE PROOF
+  const [disburseProof, setDisburseProof] = useState(null);
+
   // =========================
   // FETCH DETAIL
   // =========================
@@ -92,7 +95,8 @@ export default function DetailLoan() {
 
   const isSigned = loan?.status === "signed";
 
-  const isDisbursed = loan?.status === "disbursed";
+  const isDisbursed =
+    loan?.status === "ongoing" || loan?.status === "disbursed";
 
   const isRejected =
     loan?.status === "rejected_manager" || loan?.status === "rejected_owner";
@@ -136,7 +140,9 @@ export default function DetailLoan() {
 
       setActionLoading(true);
 
-      await api.post(`/loans/${loan.id}/reject-manager`, { reason });
+      await api.post(`/loans/${loan.id}/reject-manager`, {
+        reason,
+      });
 
       Swal.fire("Success", "Loan rejected", "success");
 
@@ -191,7 +197,9 @@ export default function DetailLoan() {
 
       setActionLoading(true);
 
-      await api.post(`/loans/${loan.id}/reject-owner`, { reason });
+      await api.post(`/loans/${loan.id}/reject-owner`, {
+        reason,
+      });
 
       Swal.fire("Success", "Loan rejected", "success");
 
@@ -212,7 +220,6 @@ export default function DetailLoan() {
   // =========================
   const handleDownloadPdf = async () => {
     try {
-      // 🔥 langsung buka PDF dari Supabase
       if (!loan?.loan_agreement) {
         throw new Error("PDF belum tersedia");
       }
@@ -266,11 +273,21 @@ export default function DetailLoan() {
   // =========================
   const handleDisburse = async () => {
     try {
+      if (!disburseProof) {
+        return Swal.fire("Warning", "Upload bukti pencairan dulu", "warning");
+      }
+
       setActionLoading(true);
 
-      await api.post(`/loans/${loan.id}/disburse`);
+      const formData = new FormData();
+
+      formData.append("proof", disburseProof);
+
+      await api.post(`/loans/${loan.id}/disburse`, formData);
 
       Swal.fire("Success", "Dana berhasil dicairkan", "success");
+
+      setDisburseProof(null);
 
       await fetchDetail();
     } catch (err) {
@@ -304,9 +321,7 @@ export default function DetailLoan() {
       const formData = new FormData();
 
       formData.append("loan_id", loan.id);
-
       formData.append("amount", amount);
-
       formData.append("proof", proof);
 
       await api.post("/transactions", formData);
@@ -363,6 +378,28 @@ export default function DetailLoan() {
         {/* INFO CARD */}
         <LoanInfoCard loan={loan} />
 
+        {/* DISBURSE PROOF */}
+        {isSigned && user?.role === "admin" && (
+          <div className="bg-white border rounded-2xl p-5 space-y-4">
+            <h3 className="font-semibold text-gray-700">
+              Upload Bukti Pencairan
+            </h3>
+
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={(e) => setDisburseProof(e.target.files[0])}
+              className="w-full border rounded-xl p-3"
+            />
+
+            {disburseProof && (
+              <div className="text-sm text-green-600">
+                ✅ {disburseProof.name}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ACTION */}
         {!isRejected && (
           <LoanActions
@@ -400,8 +437,19 @@ export default function DetailLoan() {
         )}
 
         {isDisbursed && (
-          <div className="bg-green-50 border border-green-200 p-5 rounded-2xl text-green-700">
-            💰 Dana sudah berhasil dicairkan.
+          <div className="bg-green-50 border border-green-200 p-5 rounded-2xl text-green-700 space-y-3">
+            <div>💰 Dana sudah berhasil dicairkan.</div>
+
+            {loan?.disbursement_proof && (
+              <a
+                href={loan.disbursement_proof}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex bg-green-600 text-white px-4 py-2 rounded-xl text-sm"
+              >
+                Lihat Bukti Pencairan
+              </a>
+            )}
           </div>
         )}
 

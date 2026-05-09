@@ -464,7 +464,7 @@ const uploadSignedContract = async (loan_id, fileUrl) => {
 // ============================
 // 🔥 DISBURSE
 // ============================
-const disburseLoan = async (loan_id, user = {}) => {
+const disburseLoan = async (loan_id, proofUrl, user = {}) => {
   return await db.sequelize.transaction(async (t) => {
     if (user.role !== "admin") {
       throw {
@@ -499,6 +499,7 @@ const disburseLoan = async (loan_id, user = {}) => {
         status: "ongoing",
 
         disbursed_at: now,
+        disbursement_proof: proofUrl,
       },
       {
         transaction: t,

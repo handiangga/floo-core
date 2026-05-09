@@ -97,6 +97,16 @@ router.post(
   verifyToken,
   validate(loanIdParam, "params"),
   rbac(["admin"]),
+
+  upload.fields([
+    {
+      name: "proof",
+      maxCount: 1,
+    },
+  ]),
+
+  processUpload("transaction"),
+
   controller.disburseLoan,
 );
 

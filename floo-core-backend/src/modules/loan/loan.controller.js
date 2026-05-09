@@ -175,6 +175,7 @@ exports.disburseLoan = async (req, res, next) => {
 
     const data = await service.disburseLoan(
       Number(req.params.id),
+      req.body.proof,
       req.user || {},
     );
 
