@@ -30,7 +30,7 @@ export default function CreateLoan() {
   // ================= FETCH =================
   const fetchEmployees = async () => {
     try {
-      const res = await api.get("/employees");
+      const res = await api.get("/employees?all=true");
       setEmployees(res?.data?.data?.data || []);
     } catch {
       Swal.fire("Error", "Gagal ambil employee", "error");

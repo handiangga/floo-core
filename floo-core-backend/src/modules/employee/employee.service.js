@@ -32,11 +32,12 @@ const extractFilePath = (url) => {
 };
 
 // ============================
-// 🔥 DELETE FILE SUPABASE (SAFE)
+// 🔥 DELETE FILE SUPABASE
 // ============================
 const deleteFile = async (url) => {
   try {
     const path = extractFilePath(url);
+
     if (!path) return;
 
     const { error } = await supabase.storage.from("employees").remove([path]);
@@ -50,7 +51,7 @@ const deleteFile = async (url) => {
 };
 
 // ============================
-// CREATE (🔥 ANTI HANG)
+// CREATE
 // ============================
 const createEmployee = async (data, user_id = null) => {
   try {
@@ -60,7 +61,6 @@ const createEmployee = async (data, user_id = null) => {
 
     console.log("✅ CREATE SUCCESS:", employee.id);
 
-    // 🔥 NON-BLOCKING (JANGAN AWAIT)
     clearAllCache().catch((err) => console.log("⚠️ Cache error:", err.message));
 
     logAudit({
@@ -90,6 +90,7 @@ const getAllEmployees = async ({
   limit = 10,
   search = "",
   position = "",
+  all = false,
 }) => {
   try {
     page = parseInt(page) || 1;
@@ -99,18 +100,57 @@ const getAllEmployees = async ({
 
     const where = {};
 
+    // =========================
+    // SEARCH
+    // =========================
     if (search) {
       where[Op.or] = [
-        { name: { [Op.iLike]: `%${search}%` } },
-        { phone: { [Op.iLike]: `%${search}%` } },
-        { address: { [Op.iLike]: `%${search}%` } },
+        {
+          name: {
+            [Op.iLike]: `%${search}%`,
+          },
+        },
+        {
+          phone: {
+            [Op.iLike]: `%${search}%`,
+          },
+        },
+        {
+          address: {
+            [Op.iLike]: `%${search}%`,
+          },
+        },
       ];
     }
 
+    // =========================
+    // POSITION
+    // =========================
     if (position) {
       where.position = position;
     }
 
+    // =========================
+    // 🔥 ALL MODE
+    // =========================
+    if (all === true || all === "true") {
+      const employees = await Employee.findAll({
+        where,
+        order: [["name", "ASC"]],
+      });
+
+      return {
+        data: employees,
+        meta: {
+          total: employees.length,
+          all: true,
+        },
+      };
+    }
+
+    // =========================
+    // PAGINATION MODE
+    // =========================
     const { rows, count } = await Employee.findAndCountAll({
       where,
       limit,
@@ -131,6 +171,7 @@ const getAllEmployees = async ({
     };
   } catch (err) {
     console.error("💥 GET ALL ERROR:", err);
+
     throw {
       status: 500,
       message: err.message || "Gagal ambil data",
@@ -146,7 +187,10 @@ const getEmployeeById = async (id) => {
     const employee = await Employee.findByPk(id);
 
     if (!employee) {
-      throw { status: 404, message: "Employee not found" };
+      throw {
+        status: 404,
+        message: "Employee not found",
+      };
     }
 
     return employee;
@@ -157,31 +201,40 @@ const getEmployeeById = async (id) => {
 };
 
 // ============================
-// UPDATE (SAFE + TRANSACTION)
+// UPDATE
 // ============================
 const updateEmployee = async (id, data, user_id = null) => {
   return await db.sequelize.transaction(async (t) => {
     try {
-      const employee = await Employee.findByPk(id, { transaction: t });
+      const employee = await Employee.findByPk(id, {
+        transaction: t,
+      });
 
       if (!employee) {
-        throw { status: 404, message: "Employee not found" };
+        throw {
+          status: 404,
+          message: "Employee not found",
+        };
       }
 
-      // 🔥 DELETE OLD FILE
+      // DELETE OLD PHOTO
       if (data.photo && data.photo !== employee.photo) {
         await deleteFile(employee.photo);
       }
 
+      // DELETE OLD KTP
       if (data.ktp_photo && data.ktp_photo !== employee.ktp_photo) {
         await deleteFile(employee.ktp_photo);
       }
 
-      // 🔥 JANGAN TIMPA NULL
+      // JANGAN OVERWRITE NULL
       if (!data.photo) delete data.photo;
+
       if (!data.ktp_photo) delete data.ktp_photo;
 
-      await employee.update(data, { transaction: t });
+      await employee.update(data, {
+        transaction: t,
+      });
 
       clearAllCache().catch(() => {});
 
@@ -202,19 +255,26 @@ const updateEmployee = async (id, data, user_id = null) => {
 };
 
 // ============================
-// DELETE (SAFE)
+// DELETE
 // ============================
 const deleteEmployee = async (id, user_id = null) => {
   return await db.sequelize.transaction(async (t) => {
     try {
-      const employee = await Employee.findByPk(id, { transaction: t });
+      const employee = await Employee.findByPk(id, {
+        transaction: t,
+      });
 
       if (!employee) {
-        throw { status: 404, message: "Employee not found" };
+        throw {
+          status: 404,
+          message: "Employee not found",
+        };
       }
 
       const loan = await Loan.findOne({
-        where: { employee_id: id },
+        where: {
+          employee_id: id,
+        },
         transaction: t,
       });
 
@@ -228,7 +288,9 @@ const deleteEmployee = async (id, user_id = null) => {
       await deleteFile(employee.photo);
       await deleteFile(employee.ktp_photo);
 
-      await employee.destroy({ transaction: t });
+      await employee.destroy({
+        transaction: t,
+      });
 
       clearAllCache().catch(() => {});
 
