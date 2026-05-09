@@ -1,6 +1,11 @@
 const PDFDocument = require("pdfkit");
 const { supabase } = require("../config/supabase");
 
+// 🔥 FORMAT RUPIAH AMAN
+const rupiah = (value = 0) => {
+  return Number(value).toLocaleString("id-ID");
+};
+
 const generateLoanPdf = async (loan, employee) => {
   return new Promise((resolve, reject) => {
     try {
@@ -10,13 +15,14 @@ const generateLoanPdf = async (loan, employee) => {
 
       const buffers = [];
 
-      doc.on("data", buffers.push.bind(buffers));
+      doc.on("data", (chunk) => {
+        buffers.push(chunk);
+      });
 
       doc.on("end", async () => {
         try {
           const pdfBuffer = Buffer.concat(buffers);
 
-          // 🔥 FIX JANGAN ADA contracts/
           const fileName = `loan-${loan.id}-${Date.now()}.pdf`;
 
           // =========================
@@ -44,11 +50,11 @@ const generateLoanPdf = async (loan, employee) => {
       });
 
       // =========================
-      // HEADER
+      // TITLE
       // =========================
       doc
-        .fontSize(18)
         .font("Helvetica-Bold")
+        .fontSize(18)
         .text("SURAT PERJANJIAN PINJAMAN", {
           align: "center",
         });
@@ -56,53 +62,46 @@ const generateLoanPdf = async (loan, employee) => {
       doc.moveDown(2);
 
       // =========================
-      // DATA EMPLOYEE
+      // DATA
       // =========================
       doc.font("Helvetica").fontSize(12);
 
-      doc.text(`Nama               : ${employee.name}`);
-      doc.text(`Jabatan            : ${employee.position || "-"}`);
-      doc.text(
-        `Jumlah Pinjaman    : Rp ${loan.total_amount.toLocaleString("id-ID")}`,
-      );
-      doc.text(
-        `Sisa Tagihan       : Rp ${loan.remaining_amount.toLocaleString(
-          "id-ID",
-        )}`,
-      );
-      doc.text(`Tenor              : ${loan.tenor} bulan`);
-      doc.text(
-        `Cicilan            : Rp ${loan.installment.toLocaleString("id-ID")}`,
-      );
+      doc.text(`Nama: ${employee?.name || "-"}`);
+      doc.text(`Jabatan: ${employee?.position || "-"}`);
+
+      doc.text(`Jumlah Pinjaman: Rp ${rupiah(loan?.total_amount)}`);
+
+      doc.text(`Sisa Tagihan: Rp ${rupiah(loan?.remaining_amount)}`);
+
+      doc.text(`Tenor: ${loan?.tenor || 0} bulan`);
+
+      doc.text(`Cicilan: Rp ${rupiah(loan?.installment)}`);
 
       doc.moveDown(2);
 
       // =========================
-      // PERJANJIAN
+      // PARAGRAF
       // =========================
       doc.text(
-        "Saya menyatakan menyetujui pinjaman ini dan bersedia melakukan pembayaran cicilan sesuai ketentuan yang berlaku di perusahaan.",
+        "Saya menyetujui pinjaman ini dan bersedia membayar cicilan sesuai ketentuan perusahaan.",
         {
           align: "justify",
-          lineGap: 5,
         },
       );
 
       doc.moveDown(5);
 
       // =========================
-      // SIGN AREA
+      // TTD
       // =========================
-      doc.text("Peminjam,", {
-        align: "left",
-      });
+      doc.text("Tanda Tangan Peminjam");
 
       doc.moveDown(5);
 
-      doc.text("(________________________)");
+      doc.text("(____________________)");
 
       // =========================
-      // FINISH
+      // END
       // =========================
       doc.end();
     } catch (err) {
