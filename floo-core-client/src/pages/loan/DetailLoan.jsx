@@ -271,7 +271,7 @@ export default function DetailLoan() {
 
       formData.append("signed_contract", file);
 
-      await api.post(`/loans/${loan.id}/upload-signed-contract`, formData);
+      await api.post(`/loans/${loan.id}/upload-contract`, formData);
 
       Swal.fire("Success", "TTD berhasil upload", "success");
 
