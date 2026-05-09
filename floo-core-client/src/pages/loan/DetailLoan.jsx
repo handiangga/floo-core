@@ -212,7 +212,7 @@ export default function DetailLoan() {
   // =========================
   const handleDownloadPdf = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("access_token");
 
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/loans/${id}/pdf`,
