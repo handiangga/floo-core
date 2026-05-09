@@ -212,38 +212,12 @@ export default function DetailLoan() {
   // =========================
   const handleDownloadPdf = async () => {
     try {
-      const token = localStorage.getItem("access_token");
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/loans/${id}/pdf`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Gagal download PDF");
+      // 🔥 langsung buka PDF dari Supabase
+      if (!loan?.loan_agreement) {
+        throw new Error("PDF belum tersedia");
       }
 
-      const blob = await response.blob();
-
-      const url = window.URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-
-      a.href = url;
-
-      a.download = `loan-${id}.pdf`;
-
-      document.body.appendChild(a);
-
-      a.click();
-
-      a.remove();
-
-      window.URL.revokeObjectURL(url);
+      window.open(loan.loan_agreement, "_blank");
     } catch (err) {
       Swal.fire("Error", err.message, "error");
     }
