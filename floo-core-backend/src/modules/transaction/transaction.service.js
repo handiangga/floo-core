@@ -18,6 +18,7 @@ const recalcLoanTransactions = async (loan_id, t) => {
       {
         model: Employee,
         as: "Employee",
+        required: true, // 🔥 FIX
       },
     ],
     transaction: t,
