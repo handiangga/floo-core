@@ -217,10 +217,10 @@ export default function CreateLoan() {
               onChange={(e) => setTenor(Number(e.target.value))}
               className="w-full border px-4 py-3 rounded-xl mt-1 focus:ring-2 focus:ring-blue-400"
             >
-              <option value={1}>1 bulan</option>
-              <option value={2}>2 bulan</option>
-              <option value={3}>3 bulan</option>
-              <option value={6}>6 bulan</option>
+              <option value={1}>1x</option>
+              <option value={2}>2x</option>
+              <option value={3}>3x</option>
+              <option value={6}>6x</option>
             </select>
           </div>
 
