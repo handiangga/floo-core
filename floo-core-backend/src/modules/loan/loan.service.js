@@ -479,6 +479,7 @@ const disburseLoan = async (loan_id, proofUrl, user = {}) => {
         {
           model: Employee,
           as: "Employee",
+          required: true, // 🔥 FIX POSTGRES
         },
       ],
       transaction: t,
