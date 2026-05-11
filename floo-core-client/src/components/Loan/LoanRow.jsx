@@ -3,7 +3,9 @@ import { formatRupiah } from "../../utils/format";
 
 export default function LoanRow({ item, navigate, onDelete }) {
   const total = Number(item.total_amount) || 0;
+
   const remaining = Number(item.remaining_amount) || 0;
+
   const status = item.status;
 
   // ================= STATUS =================
@@ -24,8 +26,11 @@ export default function LoanRow({ item, navigate, onDelete }) {
       case "ongoing":
         return "bg-blue-100 text-blue-700 border border-blue-200";
 
-      case "completed":
+      case "paid":
         return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+
+      case "overdue":
+        return "bg-red-100 text-red-700 border border-red-200";
 
       case "rejected_manager":
         return "bg-red-100 text-red-700 border border-red-200";
@@ -55,8 +60,11 @@ export default function LoanRow({ item, navigate, onDelete }) {
       case "ongoing":
         return "Aktif";
 
-      case "completed":
+      case "paid":
         return "Lunas";
+
+      case "overdue":
+        return "Terlambat";
 
       case "rejected_manager":
         return "Ditolak Manager";
@@ -123,12 +131,16 @@ export default function LoanRow({ item, navigate, onDelete }) {
       <td className="p-4 font-medium text-gray-800">{formatRupiah(total)}</td>
 
       {/* SISA */}
-      <td className="p-4 text-red-500 font-semibold">
-        {status === "completed" ? "-" : formatRupiah(remaining)}
+      <td
+        className={`p-4 font-semibold ${
+          status === "paid" ? "text-emerald-500" : "text-red-500"
+        }`}
+      >
+        {status === "paid" ? "Rp 0" : formatRupiah(remaining)}
       </td>
 
       {/* PROGRESS */}
-      <td className="p-4 w-[220px]">
+      <td className="p-4 w-[260px]">
         <div className="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden">
           <div
             className={`h-2.5 rounded-full transition-all duration-500 ${
@@ -138,11 +150,21 @@ export default function LoanRow({ item, navigate, onDelete }) {
                   ? "bg-blue-500"
                   : "bg-gray-300"
             }`}
-            style={{ width: `${progress}%` }}
+            style={{
+              width: `${progress}%`,
+            }}
           />
         </div>
 
-        <p className="text-xs mt-2 text-gray-500 font-medium">{progress}%</p>
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-xs text-gray-500 font-medium">{progress}%</p>
+
+          {status === "paid" && (
+            <span className="text-[11px] text-emerald-600 font-semibold">
+              LUNAS
+            </span>
+          )}
+        </div>
       </td>
 
       {/* STATUS */}

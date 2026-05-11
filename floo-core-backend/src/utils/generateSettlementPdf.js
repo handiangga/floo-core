@@ -87,7 +87,7 @@ const generateSettlementPdf = async (loan, employee) => {
         align: "center",
       });
 
-      doc.moveDown(2);
+      doc.moveDown(1);
 
       // =====================================================
       // NOMOR
@@ -102,7 +102,7 @@ const generateSettlementPdf = async (loan, employee) => {
       doc.moveDown(2);
 
       // =====================================================
-      // CONTENT
+      // PEMBUKA
       // =====================================================
       doc
         .font("Helvetica")
@@ -110,7 +110,9 @@ const generateSettlementPdf = async (loan, employee) => {
         .text(
           "Dengan ini perusahaan menerangkan bahwa pinjaman karyawan berikut telah dinyatakan LUNAS.",
           {
+            width: 500,
             align: "justify",
+            lineGap: 4,
           },
         );
 
@@ -119,24 +121,36 @@ const generateSettlementPdf = async (loan, employee) => {
       // =====================================================
       // DETAIL
       // =====================================================
-      doc.text("Nama Karyawan", 50);
-      doc.text(`: ${employee?.name || "-"}`, 200, doc.y - 15);
+      const startX = 50;
+      const valueX = 220;
 
-      doc.text("Jabatan", 50);
-      doc.text(`: ${employee?.position || "-"}`, 200, doc.y - 15);
+      doc.text("Nama Karyawan", startX);
 
-      doc.text("Total Pinjaman", 50);
-      doc.text(`: Rp ${rupiah(loan?.total_amount)}`, 200, doc.y - 15);
+      doc.text(`: ${employee?.name || "-"}`, valueX, doc.y - 15);
 
-      doc.text("Total Pembayaran", 50);
-      doc.text(`: Rp ${rupiah(loan?.total_amount)}`, 200, doc.y - 15);
+      doc.text("Jabatan", startX);
 
-      doc.text("Status", 50);
-      doc.text(": LUNAS", 200, doc.y - 15);
+      doc.text(`: ${employee?.position || "-"}`, valueX, doc.y - 15);
 
-      doc.text("Tanggal Pelunasan", 50);
+      doc.text("Total Pinjaman", startX);
 
-      doc.text(`: ${new Date().toLocaleDateString("id-ID")}`, 200, doc.y - 15);
+      doc.text(`: Rp ${rupiah(loan?.total_amount)}`, valueX, doc.y - 15);
+
+      doc.text("Total Pembayaran", startX);
+
+      doc.text(`: Rp ${rupiah(loan?.total_amount)}`, valueX, doc.y - 15);
+
+      doc.text("Status", startX);
+
+      doc.text(": LUNAS", valueX, doc.y - 15);
+
+      doc.text("Tanggal Pelunasan", startX);
+
+      doc.text(
+        `: ${new Date().toLocaleDateString("id-ID")}`,
+        valueX,
+        doc.y - 15,
+      );
 
       doc.moveDown(2);
 
@@ -145,8 +159,12 @@ const generateSettlementPdf = async (loan, employee) => {
       // =====================================================
       doc.text(
         "Dengan diterbitkannya surat ini, maka PIHAK KEDUA dinyatakan telah menyelesaikan seluruh kewajiban pembayaran pinjaman kepada FLOO FASHIONN dan tidak memiliki sisa tanggungan pinjaman.",
+        50,
+        doc.y,
         {
+          width: 500,
           align: "justify",
+          lineGap: 4,
         },
       );
 
