@@ -1,4 +1,5 @@
 const service = require("./transaction.service");
+
 const response = require("../../utils/response");
 
 const {
@@ -22,9 +23,13 @@ exports.createTransaction = async (req, res, next) => {
 
     const data = await service.createTransaction({
       loan_id: Number(req.body.loan_id),
+
       amount: Number(req.body.amount),
-      proof: req.body.proof || null, // ✅ FIX
-      user: req.user, // ✅ FIX
+
+      // 🔥 bukti pembayaran
+      proof: req.body.proof || null,
+
+      user: req.user,
     });
 
     response.success(res, data, "Payment recorded");
@@ -40,9 +45,12 @@ exports.getAllTransactions = async (req, res, next) => {
   try {
     const data = await service.getAllTransactions({
       ...req.query,
+
       page: Number(req.query.page) || 1,
+
       limit: Number(req.query.limit) || 10,
-      user: req.user, // 🔥 optional RBAC
+
+      user: req.user,
     });
 
     response.success(res, data);
@@ -87,7 +95,7 @@ exports.deleteTransaction = async (req, res, next) => {
       };
     }
 
-    await service.deleteTransaction(Number(req.params.id), req.user); // ✅ FIX
+    await service.deleteTransaction(Number(req.params.id), req.user);
 
     response.success(res, null, "Deleted successfully");
   } catch (err) {

@@ -4,8 +4,9 @@ const { Op } = require("sequelize");
 const { clearAllCache } = require("../../utils/cache");
 const { logAudit } = require("../../utils/audit");
 
-// 🔥 RENAME UTIL
+// 🔥 PDF UTILS
 const generateLoanPdfUtil = require("../../utils/generateLoanPdf");
+const generateDisbursementReceiptPdf = require("../../utils/generateDisbursementReceiptPdf");
 
 const { Loan, Employee, Cashflow } = db;
 
@@ -353,7 +354,7 @@ const approveByOwner = async (loan_id, user = {}) => {
     };
   }
 
-  // 🔥 GENERATE PDF
+  // 🔥 GENERATE PDF PERJANJIAN
   const contractUrl = await generateLoanPdfUtil(loan, loan.Employee);
 
   await loan.update({
@@ -474,6 +475,12 @@ const disburseLoan = async (loan_id, proofUrl, user = {}) => {
     }
 
     const loan = await Loan.findByPk(loan_id, {
+      include: [
+        {
+          model: Employee,
+          as: "Employee",
+        },
+      ],
       transaction: t,
       lock: t.LOCK.UPDATE,
     });
@@ -492,6 +499,12 @@ const disburseLoan = async (loan_id, proofUrl, user = {}) => {
       };
     }
 
+    // 🔥 GENERATE KWITANSI PDF
+    const receiptPdf = await generateDisbursementReceiptPdf(
+      loan,
+      loan.Employee,
+    );
+
     const now = new Date();
 
     await loan.update(
@@ -499,13 +512,17 @@ const disburseLoan = async (loan_id, proofUrl, user = {}) => {
         status: "ongoing",
 
         disbursed_at: now,
+
         disbursement_proof: proofUrl,
+
+        disbursement_receipt_pdf: receiptPdf,
       },
       {
         transaction: t,
       },
     );
 
+    // 🔥 CASHFLOW
     await Cashflow.create(
       {
         type: "out",
@@ -524,6 +541,14 @@ const disburseLoan = async (loan_id, proofUrl, user = {}) => {
     );
 
     await clearAllCache();
+
+    await logAudit({
+      user_id: user.id,
+      action: "DISBURSE",
+      entity: "loan",
+      entity_id: loan.id,
+      description: `Disburse loan Rp ${loan.total_amount}`,
+    });
 
     return loan;
   });
@@ -549,5 +574,6 @@ module.exports = {
   generateLoanPdf,
 
   uploadSignedContract,
+
   disburseLoan,
 };

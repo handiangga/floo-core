@@ -2,6 +2,7 @@ const express = require("express");
 const controller = require("./loan.controller");
 
 const { verifyToken } = require("../../middlewares/auth.middleware");
+
 const rbac = require("../../middlewares/rbac.middleware");
 
 const {
@@ -63,6 +64,7 @@ router.post(
 // 🔥 PDF
 // ============================
 
+// download agreement pdf
 router.get(
   "/:id/pdf",
   verifyToken,
@@ -75,23 +77,30 @@ router.get(
 // 🔥 SIGNATURE FLOW
 // ============================
 
-// upload TTD
+// upload signed contract
 router.post(
   "/:id/upload-contract",
   verifyToken,
   validate(loanIdParam, "params"),
   rbac(["admin"]),
+
   upload.fields([
     {
       name: "signed_contract",
       maxCount: 1,
     },
   ]),
+
   processUpload("contracts"),
+
   controller.uploadSignedContract,
 );
 
-// disburse
+// ============================
+// 🔥 DISBURSE FLOW
+// ============================
+
+// disburse loan
 router.post(
   "/:id/disburse",
   verifyToken,
@@ -105,6 +114,7 @@ router.post(
     },
   ]),
 
+  // 🔥 upload bukti transfer
   processUpload("transaction"),
 
   controller.disburseLoan,

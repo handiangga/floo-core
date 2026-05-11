@@ -88,6 +88,9 @@ export default function DetailLoan() {
     return Number(val.toString().replace(/\./g, "")) || 0;
   };
 
+  // =========================
+  // STATUS
+  // =========================
   const isPending =
     loan?.status === "pending_manager" || loan?.status === "pending_owner";
 
@@ -96,7 +99,11 @@ export default function DetailLoan() {
   const isSigned = loan?.status === "signed";
 
   const isDisbursed =
-    loan?.status === "ongoing" || loan?.status === "disbursed";
+    loan?.status === "ongoing" ||
+    loan?.status === "disbursed" ||
+    loan?.status === "paid";
+
+  const isPaid = loan?.status === "paid";
 
   const isRejected =
     loan?.status === "rejected_manager" || loan?.status === "rejected_owner";
@@ -306,10 +313,18 @@ export default function DetailLoan() {
   // =========================
   const handlePay = async () => {
     try {
+      if (loan?.status === "paid") {
+        return Swal.fire("Info", "Loan sudah lunas", "info");
+      }
+
       const amount = parseNumber(payAmount);
 
       if (!amount || amount <= 0) {
         return Swal.fire("Error", "Nominal tidak valid", "error");
+      }
+
+      if (amount > loan.remaining_amount) {
+        return Swal.fire("Error", "Pembayaran melebihi sisa tagihan", "error");
       }
 
       if (!proof) {
@@ -374,8 +389,10 @@ export default function DetailLoan() {
 
           <p className="text-gray-500 mt-1">{loan.Employee?.name || "-"}</p>
         </div>
+
         {/* INFO CARD */}
         <LoanInfoCard loan={loan} />
+
         {/* DISBURSE PROOF */}
         {isSigned && user?.role === "admin" && (
           <div className="bg-white border rounded-2xl p-5 space-y-4">
@@ -397,6 +414,7 @@ export default function DetailLoan() {
             )}
           </div>
         )}
+
         {/* ACTION */}
         {!isRejected && (
           <LoanActions
@@ -412,6 +430,7 @@ export default function DetailLoan() {
             onDisburse={handleDisburse}
           />
         )}
+
         {/* STATUS INFO */}
         {isPending && (
           <div className="bg-yellow-50 border border-yellow-200 p-5 rounded-2xl text-yellow-700">
@@ -422,13 +441,11 @@ export default function DetailLoan() {
         {/* WAITING SIGNATURE */}
         {isWaitingSignature && (
           <div className="space-y-5">
-            {/* INFO */}
             <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-2xl text-indigo-700">
               📄 Loan sudah disetujui owner. Silakan download PDF dan upload
               tanda tangan.
             </div>
 
-            {/* SIGNED CONTRACT */}
             {loan.signed_contract_url && (
               <div className="bg-violet-50 border border-violet-200 rounded-3xl p-6">
                 <p className="text-violet-700 font-medium mb-4">
@@ -436,19 +453,18 @@ export default function DetailLoan() {
                 </p>
 
                 <div className="flex gap-3 flex-wrap">
-                  {/* VIEW */}
                   <button
                     onClick={() =>
                       Swal.fire({
                         title: "Dokumen TTD",
                         html: `
-                  <iframe
-                    src="${loan.signed_contract_url}"
-                    width="100%"
-                    height="600px"
-                    style="border:none;border-radius:12px;"
-                  ></iframe>
-                `,
+                          <iframe
+                            src="${loan.signed_contract_url}"
+                            width="100%"
+                            height="600px"
+                            style="border:none;border-radius:12px;"
+                          ></iframe>
+                        `,
                         width: 900,
                         showCloseButton: true,
                         showConfirmButton: false,
@@ -459,7 +475,6 @@ export default function DetailLoan() {
                     Lihat TTD
                   </button>
 
-                  {/* DOWNLOAD */}
                   <a
                     href={loan.signed_contract_url}
                     target="_blank"
@@ -481,7 +496,6 @@ export default function DetailLoan() {
               ✍️ Dokumen sudah ditandatangani dan siap dicairkan.
             </div>
 
-            {/* SIGNED CONTRACT */}
             {loan.signed_contract_url && (
               <div className="bg-violet-50 border border-violet-200 rounded-3xl p-6">
                 <p className="text-violet-700 font-medium mb-4">
@@ -489,19 +503,18 @@ export default function DetailLoan() {
                 </p>
 
                 <div className="flex gap-3 flex-wrap">
-                  {/* VIEW */}
                   <button
                     onClick={() =>
                       Swal.fire({
                         title: "Dokumen TTD",
                         html: `
-                  <iframe
-                    src="${loan.signed_contract_url}"
-                    width="100%"
-                    height="600px"
-                    style="border:none;border-radius:12px;"
-                  ></iframe>
-                `,
+                          <iframe
+                            src="${loan.signed_contract_url}"
+                            width="100%"
+                            height="600px"
+                            style="border:none;border-radius:12px;"
+                          ></iframe>
+                        `,
                         width: 900,
                         showCloseButton: true,
                         showConfirmButton: false,
@@ -512,7 +525,6 @@ export default function DetailLoan() {
                     Lihat TTD
                   </button>
 
-                  {/* DOWNLOAD */}
                   <a
                     href={loan.signed_contract_url}
                     target="_blank"
@@ -531,8 +543,16 @@ export default function DetailLoan() {
         {isDisbursed && (
           <div className="space-y-5">
             {/* INFO */}
-            <div className="bg-green-50 border border-green-200 p-5 rounded-2xl text-green-700">
-              💰 Dana sudah berhasil dicairkan.
+            <div
+              className={`border p-5 rounded-2xl ${
+                isPaid
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                  : "bg-green-50 border-green-200 text-green-700"
+              }`}
+            >
+              {isPaid
+                ? "✅ Loan telah lunas."
+                : "💰 Dana sudah berhasil dicairkan."}
             </div>
 
             {/* ACTION CARDS */}
@@ -545,19 +565,18 @@ export default function DetailLoan() {
                   </p>
 
                   <div className="flex gap-3 flex-wrap">
-                    {/* VIEW */}
                     <button
                       onClick={() =>
                         Swal.fire({
                           title: "Dokumen TTD",
                           html: `
-                    <iframe
-                      src="${loan.signed_contract_url}"
-                      width="100%"
-                      height="600px"
-                      style="border:none;border-radius:12px;"
-                    ></iframe>
-                  `,
+                            <iframe
+                              src="${loan.signed_contract_url}"
+                              width="100%"
+                              height="600px"
+                              style="border:none;border-radius:12px;"
+                            ></iframe>
+                          `,
                           width: 900,
                           showCloseButton: true,
                           showConfirmButton: false,
@@ -568,7 +587,6 @@ export default function DetailLoan() {
                       Lihat TTD
                     </button>
 
-                    {/* DOWNLOAD */}
                     <a
                       href={loan.signed_contract_url}
                       target="_blank"
@@ -588,21 +606,116 @@ export default function DetailLoan() {
                     💰 Bukti Pencairan
                   </p>
 
-                  <button
-                    onClick={() =>
-                      Swal.fire({
-                        imageUrl: loan.disbursement_proof,
-                        imageAlt: "Bukti Pencairan",
-                        width: 700,
-                        showConfirmButton: false,
-                        showCloseButton: true,
-                        background: "#fff",
-                      })
-                    }
-                    className="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-2xl transition font-medium"
-                  >
-                    Lihat Bukti
-                  </button>
+                  <div className="flex gap-3 flex-wrap">
+                    <button
+                      onClick={() =>
+                        Swal.fire({
+                          imageUrl: loan.disbursement_proof,
+                          imageAlt: "Bukti Pencairan",
+                          width: 700,
+                          showConfirmButton: false,
+                          showCloseButton: true,
+                          background: "#fff",
+                        })
+                      }
+                      className="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-2xl transition font-medium"
+                    >
+                      Lihat Bukti
+                    </button>
+
+                    <a
+                      href={loan.disbursement_proof}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-white border border-green-300 text-green-700 px-5 py-3 rounded-2xl hover:bg-green-100 transition font-medium"
+                    >
+                      Download
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* RECEIPT PDF */}
+              {loan?.disbursement_receipt_pdf && (
+                <div className="bg-cyan-50 border border-cyan-200 rounded-3xl p-6">
+                  <p className="text-cyan-700 font-semibold mb-4">
+                    📄 Kwitansi Pencairan
+                  </p>
+
+                  <div className="flex gap-3 flex-wrap">
+                    <button
+                      onClick={() =>
+                        Swal.fire({
+                          title: "Kwitansi Pencairan",
+                          html: `
+                            <iframe
+                              src="${loan.disbursement_receipt_pdf}"
+                              width="100%"
+                              height="600px"
+                              style="border:none;border-radius:12px;"
+                            ></iframe>
+                          `,
+                          width: 900,
+                          showCloseButton: true,
+                          showConfirmButton: false,
+                        })
+                      }
+                      className="bg-cyan-600 hover:bg-cyan-700 text-white px-5 py-3 rounded-2xl transition font-medium"
+                    >
+                      Lihat PDF
+                    </button>
+
+                    <a
+                      href={loan.disbursement_receipt_pdf}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-white border border-cyan-300 text-cyan-700 px-5 py-3 rounded-2xl hover:bg-cyan-100 transition font-medium"
+                    >
+                      Download
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* SETTLEMENT LETTER */}
+              {loan?.settlement_letter && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-6">
+                  <p className="text-emerald-700 font-semibold mb-4">
+                    ✅ Surat Pelunasan
+                  </p>
+
+                  <div className="flex gap-3 flex-wrap">
+                    <button
+                      onClick={() =>
+                        Swal.fire({
+                          title: "Surat Pelunasan",
+                          html: `
+                            <iframe
+                              src="${loan.settlement_letter}"
+                              width="100%"
+                              height="600px"
+                              style="border:none;border-radius:12px;"
+                            ></iframe>
+                          `,
+                          width: 900,
+                          showCloseButton: true,
+                          showConfirmButton: false,
+                        })
+                      }
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-2xl transition font-medium"
+                    >
+                      Lihat PDF
+                    </button>
+
+                    <a
+                      href={loan.settlement_letter}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-white border border-emerald-300 text-emerald-700 px-5 py-3 rounded-2xl hover:bg-emerald-100 transition font-medium"
+                    >
+                      Download
+                    </a>
+                  </div>
                 </div>
               )}
             </div>
@@ -610,7 +723,7 @@ export default function DetailLoan() {
         )}
 
         {/* PAYMENT */}
-        {isDisbursed && (
+        {isDisbursed && !isPaid && (
           <LoanPayment
             loan={loan}
             payAmount={payAmount}
@@ -624,6 +737,7 @@ export default function DetailLoan() {
             setPreview={setPreview}
           />
         )}
+
         {/* HISTORY */}
         <LoanHistory transactions={transactions} />
       </div>

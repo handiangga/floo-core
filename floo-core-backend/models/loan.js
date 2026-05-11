@@ -119,6 +119,14 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
       },
 
+      disbursement_receipt_pdf: {
+        type: DataTypes.TEXT, // kwitansi pencairan PDF
+      },
+
+      settlement_letter: {
+        type: DataTypes.TEXT, // surat pelunasan
+      },
+
       // 🔥 TIMELINE
       signed_at: {
         type: DataTypes.DATE,

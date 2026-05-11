@@ -1,10 +1,12 @@
 const service = require("./loan.service");
+
 const {
   createLoanSchema,
   updateLoanSchema,
   loanIdParam,
   rejectSchema,
 } = require("./loan.validation");
+
 const response = require("../../utils/response");
 
 // ============================
@@ -13,7 +15,13 @@ const response = require("../../utils/response");
 exports.createLoan = async (req, res, next) => {
   try {
     const { error, value } = createLoanSchema.validate(req.body);
-    if (error) throw { status: 400, message: error.message };
+
+    if (error) {
+      throw {
+        status: 400,
+        message: error.message,
+      };
+    }
 
     const data = await service.createLoan(value, req.user || {});
 
@@ -29,7 +37,13 @@ exports.createLoan = async (req, res, next) => {
 exports.approveManager = async (req, res, next) => {
   try {
     const { error } = loanIdParam.validate(req.params);
-    if (error) throw { status: 400, message: error.message };
+
+    if (error) {
+      throw {
+        status: 400,
+        message: error.message,
+      };
+    }
 
     const data = await service.approveByManager(
       Number(req.params.id),
@@ -48,10 +62,22 @@ exports.approveManager = async (req, res, next) => {
 exports.rejectManager = async (req, res, next) => {
   try {
     const { error: paramError } = loanIdParam.validate(req.params);
-    if (paramError) throw { status: 400, message: paramError.message };
+
+    if (paramError) {
+      throw {
+        status: 400,
+        message: paramError.message,
+      };
+    }
 
     const { error: bodyError, value } = rejectSchema.validate(req.body);
-    if (bodyError) throw { status: 400, message: bodyError.message };
+
+    if (bodyError) {
+      throw {
+        status: 400,
+        message: bodyError.message,
+      };
+    }
 
     const data = await service.rejectByManager(
       Number(req.params.id),
@@ -71,7 +97,13 @@ exports.rejectManager = async (req, res, next) => {
 exports.approveOwner = async (req, res, next) => {
   try {
     const { error } = loanIdParam.validate(req.params);
-    if (error) throw { status: 400, message: error.message };
+
+    if (error) {
+      throw {
+        status: 400,
+        message: error.message,
+      };
+    }
 
     const data = await service.approveByOwner(
       Number(req.params.id),
@@ -90,10 +122,22 @@ exports.approveOwner = async (req, res, next) => {
 exports.rejectOwner = async (req, res, next) => {
   try {
     const { error: paramError } = loanIdParam.validate(req.params);
-    if (paramError) throw { status: 400, message: paramError.message };
+
+    if (paramError) {
+      throw {
+        status: 400,
+        message: paramError.message,
+      };
+    }
 
     const { error: bodyError, value } = rejectSchema.validate(req.body);
-    if (bodyError) throw { status: 400, message: bodyError.message };
+
+    if (bodyError) {
+      throw {
+        status: 400,
+        message: bodyError.message,
+      };
+    }
 
     const data = await service.rejectByOwner(
       Number(req.params.id),
@@ -140,18 +184,26 @@ exports.generateLoanPdf = async (req, res, next) => {
 };
 
 // ============================
-// 🔥 UPLOAD SIGNED CONTRACT (FIXED 🔥)
+// 🔥 UPLOAD SIGNED CONTRACT
 // ============================
 exports.uploadSignedContract = async (req, res, next) => {
   try {
     const { error } = loanIdParam.validate(req.params);
-    if (error) throw { status: 400, message: error.message };
 
-    // 🔥 FIX DI SINI
+    if (error) {
+      throw {
+        status: 400,
+        message: error.message,
+      };
+    }
+
     const fileUrl = req.body.signed_contract;
 
     if (!fileUrl) {
-      throw { status: 400, message: "File TTD wajib diupload" };
+      throw {
+        status: 400,
+        message: "File TTD wajib diupload",
+      };
     }
 
     const data = await service.uploadSignedContract(
@@ -166,16 +218,32 @@ exports.uploadSignedContract = async (req, res, next) => {
 };
 
 // ============================
-// 🔥 DISBURSE
+// 🔥 DISBURSE LOAN
 // ============================
 exports.disburseLoan = async (req, res, next) => {
   try {
     const { error } = loanIdParam.validate(req.params);
-    if (error) throw { status: 400, message: error.message };
+
+    if (error) {
+      throw {
+        status: 400,
+        message: error.message,
+      };
+    }
+
+    // 🔥 BUKTI TRANSFER / CASH RECEIPT
+    const proofUrl = req.body.proof;
+
+    if (!proofUrl) {
+      throw {
+        status: 400,
+        message: "Bukti pencairan wajib diupload",
+      };
+    }
 
     const data = await service.disburseLoan(
       Number(req.params.id),
-      req.body.proof,
+      proofUrl,
       req.user || {},
     );
 
@@ -191,6 +259,7 @@ exports.disburseLoan = async (req, res, next) => {
 exports.getAllLoans = async (req, res, next) => {
   try {
     const data = await service.getAllLoans(req.user || {});
+
     response.success(res, data);
   } catch (err) {
     next(err);
@@ -203,7 +272,13 @@ exports.getAllLoans = async (req, res, next) => {
 exports.getLoanById = async (req, res, next) => {
   try {
     const { error } = loanIdParam.validate(req.params);
-    if (error) throw { status: 400, message: error.message };
+
+    if (error) {
+      throw {
+        status: 400,
+        message: error.message,
+      };
+    }
 
     const data = await service.getLoanById(
       Number(req.params.id),
@@ -222,10 +297,22 @@ exports.getLoanById = async (req, res, next) => {
 exports.updateLoan = async (req, res, next) => {
   try {
     const { error: paramError } = loanIdParam.validate(req.params);
-    if (paramError) throw { status: 400, message: paramError.message };
+
+    if (paramError) {
+      throw {
+        status: 400,
+        message: paramError.message,
+      };
+    }
 
     const { error: bodyError } = updateLoanSchema.validate(req.body);
-    if (bodyError) throw { status: 400, message: bodyError.message };
+
+    if (bodyError) {
+      throw {
+        status: 400,
+        message: bodyError.message,
+      };
+    }
 
     const data = await service.updateLoan(
       Number(req.params.id),
@@ -245,7 +332,13 @@ exports.updateLoan = async (req, res, next) => {
 exports.deleteLoan = async (req, res, next) => {
   try {
     const { error } = loanIdParam.validate(req.params);
-    if (error) throw { status: 400, message: error.message };
+
+    if (error) {
+      throw {
+        status: 400,
+        message: error.message,
+      };
+    }
 
     await service.deleteLoan(Number(req.params.id), req.user || {});
 

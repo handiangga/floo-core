@@ -7,7 +7,7 @@ const options = {
 };
 
 // ============================
-// CREATE
+// 🔥 CREATE
 // ============================
 const createLoanSchema = Joi.object({
   employee_id: Joi.number().integer().positive().required(),
@@ -18,55 +18,90 @@ const createLoanSchema = Joi.object({
 
   tenor: Joi.number().integer().min(1).max(24).required(),
 
+  // 🔥 FORBIDDEN SYSTEM FIELD
   type: Joi.forbidden(),
+
   status: Joi.forbidden(),
+
   total_amount: Joi.forbidden(),
+
   remaining_amount: Joi.forbidden(),
+
+  loan_agreement: Joi.forbidden(),
+
+  signed_contract_url: Joi.forbidden(),
+
+  disbursement_proof: Joi.forbidden(),
+
+  disbursement_receipt_pdf: Joi.forbidden(),
+
+  settlement_letter: Joi.forbidden(),
 }).options(options);
 
 // ============================
-// UPDATE
+// 🔥 UPDATE
 // ============================
 const updateLoanSchema = Joi.object({
   principal_amount: Joi.number().integer().min(1).max(1000000000),
+
   interest_rate: Joi.number().min(0).max(50),
+
   tenor: Joi.number().integer().min(1).max(24),
+
+  // 🔥 BLOCK SYSTEM FIELD
+  loan_agreement: Joi.forbidden(),
+
+  signed_contract_url: Joi.forbidden(),
+
+  disbursement_proof: Joi.forbidden(),
+
+  disbursement_receipt_pdf: Joi.forbidden(),
+
+  settlement_letter: Joi.forbidden(),
+
+  status: Joi.forbidden(),
 })
   .min(1)
   .unknown(false)
   .options(options);
 
 // ============================
-// PARAM
+// 🔥 PARAM
 // ============================
 const loanIdParam = Joi.object({
   id: Joi.number().integer().positive().required(),
 });
 
 // ============================
-// REJECT
+// 🔥 REJECT
 // ============================
 const rejectSchema = Joi.object({
   reason: Joi.string().min(3).max(255).required(),
 }).options(options);
 
 // ============================
-// SIMULATE
+// 🔥 SIMULATE
 // ============================
 const simulateLoanSchema = Joi.object({
   employee_id: Joi.number().integer().positive().required(),
+
   principal_amount: Joi.number().integer().min(1).required(),
+
   interest_rate: Joi.number().min(0).max(50).default(0),
+
   tenor: Joi.number().integer().min(1).max(24).required(),
 }).options(options);
 
 // ============================
-// EXPORT
+// 🔥 EXPORT
 // ============================
 module.exports = {
   createLoanSchema,
   updateLoanSchema,
+
   loanIdParam,
+
   rejectSchema,
+
   simulateLoanSchema,
 };
