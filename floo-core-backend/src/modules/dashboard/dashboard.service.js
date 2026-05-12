@@ -1,7 +1,10 @@
 const db = require("../../../models");
+
 const { Op, fn, col, literal } = require("sequelize");
 
 const { Employee, Loan, Transaction, Cashflow } = db;
+
+const cashService = require("../cash/cash.service");
 
 // ============================
 // 🔧 HELPER: fill missing dates
@@ -14,6 +17,7 @@ const fillDates = (rows, days = 14) => {
   });
 
   const result = [];
+
   const now = new Date();
 
   for (let i = days - 1; i >= 0; i--) {
@@ -131,7 +135,9 @@ const getDashboard = async (params = {}) => {
     const cashflowRaw = await Cashflow.findAll({
       attributes: [
         [fn("DATE", col("createdAt")), "date"],
+
         "type",
+
         [fn("SUM", col("amount")), "total"],
       ],
 
@@ -172,6 +178,7 @@ const getDashboard = async (params = {}) => {
     const cashRaw = await Cashflow.findAll({
       attributes: [
         "type",
+
         [fn("COALESCE", fn("SUM", col("amount")), 0), "total"],
       ],
 
@@ -231,10 +238,15 @@ const getDashboard = async (params = {}) => {
 
       return {
         id: item.id,
+
         amount: Number(item.amount) || 0,
+
         type: item.type,
+
         source: item.source,
+
         date: item.createdAt,
+
         employee: employeeName || label,
       };
     });
@@ -249,6 +261,7 @@ const getDashboard = async (params = {}) => {
 
       attributes: [
         "employee_id",
+
         [fn("SUM", col("remaining_amount")), "total"],
       ],
 
@@ -269,21 +282,32 @@ const getDashboard = async (params = {}) => {
 
     const topDebtors = topDebtorsRaw.map((item) => ({
       name: item.Employee?.name || "-",
+
       total: Number(item.dataValues.total) || 0,
     }));
 
     return {
       summary: {
         totalEmployees,
+
         totalLoan,
+
         totalRemaining,
+
         totalPayment,
+
         activeLoans,
+
         paidLoans,
+
         overdueLoans,
+
         collectionRate: Number(collectionRate.toFixed(2)),
+
         cashBalance,
+
         cashIn: totalIn,
+
         cashOut: totalOut,
       },
 
@@ -305,9 +329,6 @@ const getDashboard = async (params = {}) => {
 // ============================
 const getManagerDashboard = async () => {
   try {
-    // ============================
-    // 🔥 KPI
-    // ============================
     const [pendingApproval, approvedLoans, rejectedLoans, activeLoans] =
       await Promise.all([
         Loan.count({
@@ -335,9 +356,6 @@ const getManagerDashboard = async () => {
         }),
       ]);
 
-    // ============================
-    // 🔥 PENDING APPROVAL
-    // ============================
     const pendingApprovalsRaw = await Loan.findAll({
       where: {
         status: "pending_manager",
@@ -372,9 +390,6 @@ const getManagerDashboard = async () => {
       createdAt: loan.createdAt,
     }));
 
-    // ============================
-    // 🔥 HIGH RISK LOAN
-    // ============================
     const highRiskRaw = await Loan.findAll({
       where: {
         remaining_amount: {
@@ -414,8 +429,11 @@ const getManagerDashboard = async () => {
     return {
       summary: {
         pendingApproval,
+
         approvedLoans,
+
         rejectedLoans,
+
         activeLoans,
       },
 
@@ -470,35 +488,16 @@ const getOwnerDashboard = async () => {
     ]);
 
     // ============================
-    // 🔥 CASHFLOW
+    // 🔥 CASH DATA
     // ============================
-    const cashRaw = await Cashflow.findAll({
-      attributes: [
-        "type",
-        [fn("COALESCE", fn("SUM", col("amount")), 0), "total"],
-      ],
+    const balance = await cashService.getCashBalance();
 
-      group: ["type"],
+    const cashflow = await cashService.getCashflowChart();
 
-      raw: true,
-    });
-
-    let totalIn = 0;
-
-    let totalOut = 0;
-
-    for (const c of cashRaw) {
-      const total = Number(c.total) || 0;
-
-      if (c.type === "in") totalIn += total;
-
-      if (c.type === "out") totalOut += total;
-    }
-
-    const cashBalance = totalIn - totalOut;
+    const activities = await cashService.getRecentActivities();
 
     // ============================
-    // 🔥 FINAL APPROVALS
+    // 🔥 FINAL APPROVAL
     // ============================
     const approvalsRaw = await Loan.findAll({
       where: {
@@ -542,6 +541,7 @@ const getOwnerDashboard = async () => {
 
       attributes: [
         "employee_id",
+
         [fn("SUM", col("remaining_amount")), "total"],
       ],
 
@@ -576,12 +576,16 @@ const getOwnerDashboard = async () => {
 
         badLoans,
 
-        cashBalance,
+        cashBalance: balance.balance,
 
-        cashIn: totalIn,
+        cashIn: balance.totalIn,
 
-        cashOut: totalOut,
+        cashOut: balance.totalOut,
       },
+
+      cashflow,
+
+      activities,
 
       finalApprovals,
 
@@ -596,6 +600,8 @@ const getOwnerDashboard = async () => {
 
 module.exports = {
   getDashboard,
+
   getManagerDashboard,
+
   getOwnerDashboard,
 };
