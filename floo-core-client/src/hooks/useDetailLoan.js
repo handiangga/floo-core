@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import Swal from "sweetalert2";
 
-import api from "../services/api";
+import api from "../api/api";
 
 // ======================================
 // HOOK
