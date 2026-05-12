@@ -479,7 +479,7 @@ const disburseLoan = async (loan_id, proofUrl, user = {}) => {
         {
           model: Employee,
           as: "Employee",
-          required: true, // 🔥 FIX POSTGRES
+          required: true,
         },
       ],
       transaction: t,
@@ -500,14 +500,10 @@ const disburseLoan = async (loan_id, proofUrl, user = {}) => {
       };
     }
 
-    // 🔥 GENERATE KWITANSI PDF
-    const receiptPdf = await generateDisbursementReceiptPdf(
-      loan,
-      loan.Employee,
-    );
-
+    // 🔥 tanggal pencairan
     const now = new Date();
 
+    // 🔥 update dulu
     await loan.update(
       {
         status: "ongoing",
@@ -515,7 +511,26 @@ const disburseLoan = async (loan_id, proofUrl, user = {}) => {
         disbursed_at: now,
 
         disbursement_proof: proofUrl,
+      },
+      {
+        transaction: t,
+      },
+    );
 
+    // 🔥 reload data terbaru
+    await loan.reload({
+      transaction: t,
+    });
+
+    // 🔥 generate kwitansi SETELAH reload
+    const receiptPdf = await generateDisbursementReceiptPdf(
+      loan,
+      loan.Employee,
+    );
+
+    // 🔥 simpan pdf
+    await loan.update(
+      {
         disbursement_receipt_pdf: receiptPdf,
       },
       {
