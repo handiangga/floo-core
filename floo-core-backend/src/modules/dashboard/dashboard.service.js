@@ -52,11 +52,11 @@ const getDashboard = async (params = {}) => {
     const loanWhere = {};
 
     if (role === "manager") {
-      loanWhere.status = "WAITING_MANAGER_APPROVAL";
+      loanWhere.status = "pending_manager";
     }
 
     if (role === "owner") {
-      loanWhere.status = "WAITING_OWNER_APPROVAL";
+      loanWhere.status = "pending_owner";
     }
 
     // ============================
@@ -84,13 +84,17 @@ const getDashboard = async (params = {}) => {
           remaining_amount: {
             [Op.gt]: 0,
           },
+
+          status: "ongoing",
+
           ...loanWhere,
         },
       }),
 
       Loan.count({
         where: {
-          remaining_amount: 0,
+          status: "paid",
+
           ...loanWhere,
         },
       }),
@@ -104,6 +108,8 @@ const getDashboard = async (params = {}) => {
           due_date: {
             [Op.lt]: now,
           },
+
+          status: "ongoing",
 
           ...loanWhere,
         },
@@ -237,6 +243,10 @@ const getDashboard = async (params = {}) => {
     // 🔥 TOP DEBTOR
     // ============================
     const topDebtorsRaw = await Loan.findAll({
+      where: {
+        status: "ongoing",
+      },
+
       attributes: [
         "employee_id",
         [fn("SUM", col("remaining_amount")), "total"],
@@ -302,25 +312,25 @@ const getManagerDashboard = async () => {
       await Promise.all([
         Loan.count({
           where: {
-            status: "WAITING_MANAGER_APPROVAL",
+            status: "pending_manager",
           },
         }),
 
         Loan.count({
           where: {
-            status: "WAITING_OWNER_APPROVAL",
+            status: "pending_owner",
           },
         }),
 
         Loan.count({
           where: {
-            status: "REJECTED_BY_MANAGER",
+            status: "rejected_manager",
           },
         }),
 
         Loan.count({
           where: {
-            status: "DISBURSED",
+            status: "ongoing",
           },
         }),
       ]);
@@ -330,7 +340,7 @@ const getManagerDashboard = async () => {
     // ============================
     const pendingApprovalsRaw = await Loan.findAll({
       where: {
-        status: "WAITING_MANAGER_APPROVAL",
+        status: "pending_manager",
       },
 
       include: [
@@ -374,6 +384,8 @@ const getManagerDashboard = async () => {
         due_date: {
           [Op.lt]: new Date(),
         },
+
+        status: "ongoing",
       },
 
       include: [
@@ -438,7 +450,7 @@ const getOwnerDashboard = async () => {
 
       Loan.count({
         where: {
-          status: "WAITING_OWNER_APPROVAL",
+          status: "pending_owner",
         },
       }),
 
@@ -451,6 +463,8 @@ const getOwnerDashboard = async () => {
           due_date: {
             [Op.lt]: new Date(),
           },
+
+          status: "ongoing",
         },
       }),
     ]);
@@ -488,7 +502,7 @@ const getOwnerDashboard = async () => {
     // ============================
     const approvalsRaw = await Loan.findAll({
       where: {
-        status: "WAITING_OWNER_APPROVAL",
+        status: "pending_owner",
       },
 
       include: [
@@ -522,6 +536,10 @@ const getOwnerDashboard = async () => {
     // 🔥 TOP OUTSTANDING
     // ============================
     const topOutstandingRaw = await Loan.findAll({
+      where: {
+        status: "ongoing",
+      },
+
       attributes: [
         "employee_id",
         [fn("SUM", col("remaining_amount")), "total"],
