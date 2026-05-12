@@ -59,7 +59,7 @@ export default function useDetailLoan() {
 
       const loanData = loanRes?.data?.data || loanRes?.data;
 
-      console.log("Loan Full :", loanData);
+      //   console.log("Loan Full :", loanData);
 
       setLoan(loanData);
 
@@ -69,7 +69,7 @@ export default function useDetailLoan() {
       try {
         const trxRes = await api.get(`/transactions?loan_id=${id}`);
 
-        console.log("TRANSACTIONS :", trxRes.data);
+        // console.log("TRANSACTIONS :", trxRes.data);
 
         const trxData = trxRes?.data?.data?.data || trxRes?.data?.data || [];
 
@@ -112,17 +112,18 @@ export default function useDetailLoan() {
 
       setPaymentLoading(true);
 
+      const cleanAmount = Number(String(amount).replace(/\D/g, ""));
+
       const formData = new FormData();
 
       formData.append("loan_id", loan.id);
 
-      formData.append("amount", amount);
+      formData.append("amount", cleanAmount);
 
       formData.append("type", type);
 
       formData.append("proof", proofFile);
 
-      // 🔥 FIX ENDPOINT
       await api.post("/transactions", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
