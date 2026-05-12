@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import Layout from "../../components/layout/LayoutTest";
 
@@ -13,15 +13,19 @@ import {
   TrendingUp,
   CheckCircle2,
   Eye,
-  ArrowDownCircle,
-  ArrowUpCircle,
 } from "lucide-react";
+
+import { useNavigate } from "react-router-dom";
 
 import FinanceCard from "../../components/ui/FinanceCard";
 
 import CashflowChart from "../../components/dashboard/CashflowChart";
 
-import { useNavigate } from "react-router-dom";
+import RiskAlerts from "../../components/dashboard/RiskAlerts";
+
+import ActivityList from "../../components/dashboard/ActivityList";
+
+import TopOutstanding from "../../components/dashboard/TopOutstanding";
 
 export default function OwnerDashboard() {
   const navigate = useNavigate();
@@ -156,7 +160,13 @@ export default function OwnerDashboard() {
 
       icon: Wallet,
 
-      color: "from-red-400 to-red-500",
+      color: "from-red-500 to-red-600",
+
+      trend: 12,
+
+      subtitle: "Outstanding loan aktif",
+
+      badge: "Monthly Growth",
     },
 
     {
@@ -166,7 +176,13 @@ export default function OwnerDashboard() {
 
       icon: Landmark,
 
-      color: "from-blue-400 to-blue-500",
+      color: "from-blue-500 to-blue-600",
+
+      trend: 8,
+
+      subtitle: "Total dana dicairkan",
+
+      badge: "Stable",
     },
 
     {
@@ -176,9 +192,15 @@ export default function OwnerDashboard() {
 
       icon: CheckCircle2,
 
-      color: "from-yellow-400 to-yellow-500",
+      color: "from-yellow-500 to-yellow-600",
 
       isMoney: false,
+
+      trend: -2,
+
+      subtitle: "Menunggu approval owner",
+
+      badge: "Need Review",
     },
 
     {
@@ -188,9 +210,15 @@ export default function OwnerDashboard() {
 
       icon: AlertTriangle,
 
-      color: "from-orange-400 to-orange-500",
+      color: "from-orange-500 to-orange-600",
 
       isMoney: false,
+
+      trend: 4,
+
+      subtitle: "Pinjaman overdue",
+
+      badge: "Risk",
     },
 
     {
@@ -202,35 +230,19 @@ export default function OwnerDashboard() {
 
       color:
         safe(s.cashBalance) >= 0
-          ? "from-green-400 to-green-500"
-          : "from-red-400 to-red-500",
+          ? "from-green-500 to-emerald-600"
+          : "from-red-500 to-red-700",
+
+      trend: safe(s.cashBalance) >= 0 ? 15 : -10,
+
+      subtitle:
+        safe(s.cashBalance) >= 0
+          ? "Cashflow dalam kondisi aman"
+          : "Cashflow kritis",
+
+      badge: safe(s.cashBalance) >= 0 ? "Healthy" : "Critical",
     },
   ];
-
-  // =====================================================
-  // 🔥 ACTIVITIES
-  // =====================================================
-  const activities = useMemo(() => {
-    return (
-      data?.activities?.map((item) => {
-        const isIn = item.type === "in";
-
-        return {
-          ...item,
-
-          icon: isIn ? (
-            <ArrowDownCircle className="w-5 h-5 text-green-500" />
-          ) : (
-            <ArrowUpCircle className="w-5 h-5 text-red-500" />
-          ),
-
-          color: isIn ? "text-green-500" : "text-red-500",
-
-          sign: isIn ? "+" : "-",
-        };
-      }) || []
-    );
-  }, [data]);
 
   // =====================================================
   // 🔥 LOADING
@@ -242,7 +254,7 @@ export default function OwnerDashboard() {
           {[...Array(5)].map((_, i) => (
             <div
               key={i}
-              className="h-28 rounded-2xl bg-gray-200 animate-pulse"
+              className="h-36 rounded-3xl bg-gray-200 animate-pulse"
             />
           ))}
         </div>
@@ -275,18 +287,29 @@ export default function OwnerDashboard() {
       {/* ================================================= */}
       {/* 🔥 HEADER */}
       {/* ================================================= */}
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Owner Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Owner Dashboard</h1>
 
-          <p className="text-sm text-gray-500">Executive finance analytics</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Executive financial monitoring platform
+          </p>
         </div>
 
         <button
           onClick={fetchDashboard}
-          className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm"
+          className="
+            px-5 py-2.5
+            rounded-xl
+            bg-gray-900
+            hover:bg-black
+            text-white
+            text-sm
+            font-medium
+            transition
+          "
         >
-          Refresh
+          Refresh Dashboard
         </button>
       </div>
 
@@ -300,36 +323,53 @@ export default function OwnerDashboard() {
       </div>
 
       {/* ================================================= */}
+      {/* 🔥 RISK ALERTS */}
+      {/* ================================================= */}
+      <RiskAlerts alerts={data?.riskAlerts || []} />
+
+      {/* ================================================= */}
       {/* 🔥 FINAL APPROVAL */}
       {/* ================================================= */}
-      <div className="mt-8 bg-white rounded-2xl shadow p-6">
-        <div className="flex items-center justify-between mb-5">
+      <div className="mt-8 bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="font-bold text-lg">Final Approval Queue</h2>
+            <h2 className="font-bold text-xl text-gray-900">
+              Final Approval Queue
+            </h2>
 
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 mt-1">
               Pengajuan menunggu approval owner
             </p>
           </div>
 
           <div className="text-sm text-gray-400">
-            {data?.finalApprovals?.length} pengajuan
+            {data?.finalApprovals?.length || 0} pengajuan
           </div>
         </div>
 
         <div className="overflow-auto max-h-[420px]">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-white z-10">
-              <tr className="border-b">
-                <th className="text-left py-3">Nama</th>
+              <tr className="border-b border-gray-100">
+                <th className="text-left py-4 font-semibold text-gray-600">
+                  Nama
+                </th>
 
-                <th className="text-left py-3">Nominal</th>
+                <th className="text-left py-4 font-semibold text-gray-600">
+                  Nominal
+                </th>
 
-                <th className="text-left py-3">Tenor</th>
+                <th className="text-left py-4 font-semibold text-gray-600">
+                  Tenor
+                </th>
 
-                <th className="text-left py-3">Remaining</th>
+                <th className="text-left py-4 font-semibold text-gray-600">
+                  Remaining
+                </th>
 
-                <th className="text-right py-3">Action</th>
+                <th className="text-right py-4 font-semibold text-gray-600">
+                  Action
+                </th>
               </tr>
             </thead>
 
@@ -338,26 +378,38 @@ export default function OwnerDashboard() {
                 data.finalApprovals.map((item) => (
                   <tr
                     key={item.id}
-                    className="border-b hover:bg-gray-50 transition"
+                    className="border-b border-gray-100 hover:bg-gray-50 transition"
                   >
-                    <td className="py-4 font-medium">{item.employee}</td>
+                    <td className="py-5 font-medium text-gray-800">
+                      {item.employee}
+                    </td>
 
-                    <td className="py-4">
+                    <td className="py-5 font-semibold text-gray-800">
                       Rp {safe(item.amount).toLocaleString("id-ID")}
                     </td>
 
-                    <td className="py-4">{item.tenor}</td>
+                    <td className="py-5 text-gray-600">{item.tenor} Bulan</td>
 
-                    <td className="py-4 text-red-500 font-medium">
+                    <td className="py-5 text-red-500 font-bold">
                       Rp {safe(item.remaining).toLocaleString("id-ID")}
                     </td>
 
-                    <td className="py-4">
+                    <td className="py-5">
                       <div className="flex justify-end gap-2">
                         {/* DETAIL */}
                         <button
                           onClick={() => navigate(`/loans/${item.id}`)}
-                          className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs flex items-center gap-1"
+                          className="
+                            px-3 py-2
+                            rounded-xl
+                            bg-gray-100
+                            hover:bg-gray-200
+                            text-gray-700
+                            text-xs
+                            font-medium
+                            flex items-center gap-1
+                            transition
+                          "
                         >
                           <Eye className="w-3 h-3" />
                           Detail
@@ -366,7 +418,16 @@ export default function OwnerDashboard() {
                         {/* APPROVE */}
                         <button
                           onClick={() => handleApproveOwner(item.id)}
-                          className="px-3 py-1 rounded bg-green-500 hover:bg-green-600 text-white text-xs"
+                          className="
+                            px-3 py-2
+                            rounded-xl
+                            bg-green-500
+                            hover:bg-green-600
+                            text-white
+                            text-xs
+                            font-medium
+                            transition
+                          "
                         >
                           Approve
                         </button>
@@ -374,7 +435,16 @@ export default function OwnerDashboard() {
                         {/* REJECT */}
                         <button
                           onClick={() => handleRejectOwner(item.id)}
-                          className="px-3 py-1 rounded bg-red-500 hover:bg-red-600 text-white text-xs"
+                          className="
+                            px-3 py-2
+                            rounded-xl
+                            bg-red-500
+                            hover:bg-red-600
+                            text-white
+                            text-xs
+                            font-medium
+                            transition
+                          "
                         >
                           Reject
                         </button>
@@ -384,7 +454,7 @@ export default function OwnerDashboard() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-gray-400">
+                  <td colSpan={5} className="py-12 text-center text-gray-400">
                     Tidak ada pending approval
                   </td>
                 </tr>
@@ -399,125 +469,19 @@ export default function OwnerDashboard() {
       {/* ================================================= */}
       <div className="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* CHART */}
-        <div className="xl:col-span-2 bg-white rounded-2xl shadow p-6">
-          <div className="mb-5">
-            <h2 className="font-bold text-lg">Cashflow Analytics</h2>
-
-            <p className="text-sm text-gray-500">
-              Monitoring cash in & cash out
-            </p>
-          </div>
-
+        <div className="xl:col-span-2">
           <CashflowChart data={data?.cashflow || []} />
         </div>
 
         {/* ACTIVITY */}
-        <div className="bg-white rounded-2xl shadow p-6">
-          <div className="mb-5">
-            <h2 className="font-bold text-lg">Aktivitas</h2>
-
-            <p className="text-sm text-gray-500">Aktivitas cashflow terbaru</p>
-          </div>
-
-          <div className="space-y-4">
-            {activities.length > 0 ? (
-              activities.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between border rounded-xl p-4 hover:bg-gray-50 transition"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                      {item.icon}
-                    </div>
-
-                    <div>
-                      <p className="font-medium">{item.employee}</p>
-
-                      <p className="text-sm text-gray-500 capitalize">
-                        {item.source}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <div className={`font-bold ${item.color}`}>
-                      {item.sign} Rp {safe(item.amount).toLocaleString("id-ID")}
-                    </div>
-
-                    <div className="text-xs text-gray-400">
-                      {new Date(item.date).toLocaleDateString("id-ID")}
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-sm text-gray-400">Tidak ada aktivitas</div>
-            )}
-          </div>
-        </div>
+        <ActivityList data={data?.activities || []} />
       </div>
 
       {/* ================================================= */}
       {/* 🔥 TOP OUTSTANDING */}
       {/* ================================================= */}
-      <div className="mt-8 bg-white rounded-2xl shadow p-6">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="font-bold text-lg">Top Outstanding</h2>
-
-            <p className="text-sm text-gray-500">
-              Outstanding pinjaman terbesar
-            </p>
-          </div>
-
-          <div className="text-sm text-gray-400">
-            {data?.topOutstanding?.length} orang
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {data?.topOutstanding?.length > 0 ? (
-            data.topOutstanding.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between border rounded-xl p-4 hover:bg-gray-50 transition"
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm
-                      ${
-                        index === 0
-                          ? "bg-yellow-100 text-yellow-700"
-                          : index === 1
-                            ? "bg-gray-200 text-gray-700"
-                            : index === 2
-                              ? "bg-orange-100 text-orange-700"
-                              : "bg-gray-100 text-gray-500"
-                      }
-                    `}
-                  >
-                    #{index + 1}
-                  </div>
-
-                  <div>
-                    <p className="font-medium">{item.employee}</p>
-
-                    <p className="text-sm text-gray-500">Outstanding loan</p>
-                  </div>
-                </div>
-
-                <div className="font-bold text-red-500">
-                  Rp {safe(item.total).toLocaleString("id-ID")}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-sm text-gray-400">
-              Tidak ada outstanding loan
-            </div>
-          )}
-        </div>
+      <div className="mt-8">
+        <TopOutstanding data={data?.topOutstanding || []} />
       </div>
     </Layout>
   );

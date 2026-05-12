@@ -1,35 +1,146 @@
+import { motion } from "framer-motion";
+
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+
 export default function FinanceCard({
   title,
   value,
   icon: Icon,
   color,
   isMoney = true,
+
+  // 🔥 NEW
+  trend = 0,
+  subtitle = "",
+  badge = "",
 }) {
+  // =====================================================
+  // 🔥 HELPERS
+  // =====================================================
+  const safeValue = Number(value || 0);
+
+  const isPositive = trend > 0;
+
+  const isNegative = trend < 0;
+
+  // =====================================================
+  // 🔥 TREND CONFIG
+  // =====================================================
+  const trendColor = isPositive
+    ? "text-emerald-200"
+    : isNegative
+      ? "text-red-200"
+      : "text-white/70";
+
+  const TrendIcon = isPositive ? TrendingUp : isNegative ? TrendingDown : Minus;
+
+  // =====================================================
+  // 🔥 FORMAT MONEY
+  // =====================================================
+  const formattedMoney = safeValue.toLocaleString("id-ID");
+
   return (
-    <div
-      className={`bg-gradient-to-r ${color} text-white p-6 rounded-2xl shadow flex justify-between items-center`}
+    <motion.div
+      whileHover={{
+        y: -4,
+        scale: 1.01,
+      }}
+      transition={{
+        duration: 0.2,
+      }}
+      className={`
+        relative overflow-hidden
+        bg-gradient-to-br ${color}
+        text-white
+        p-6
+        rounded-3xl
+        shadow-lg
+        border border-white/10
+        min-h-[150px]
+      `}
     >
-      <div>
-        {/* TITLE */}
-        <p className="text-sm opacity-90">{title}</p>
+      {/* ================================================= */}
+      {/* 🔥 GLOW EFFECT */}
+      {/* ================================================= */}
+      <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
 
-        {/* VALUE */}
-        {isMoney ? (
-          <h1 className="mt-2 flex items-end gap-1">
-            <span className="text-xs opacity-80">Rp</span>
-            <span className="text-xl font-bold tracking-tight">
-              {Number(value || 0).toLocaleString("id-ID")}
-            </span>
-          </h1>
-        ) : (
-          <h1 className="text-xl font-bold mt-2">{value ?? 0}</h1>
-        )}
+      {/* ================================================= */}
+      {/* 🔥 CONTENT */}
+      {/* ================================================= */}
+      <div className="relative z-10 flex justify-between items-start h-full">
+        {/* LEFT */}
+        <div className="flex flex-col justify-between h-full">
+          <div>
+            {/* TITLE */}
+            <p className="text-sm font-medium text-white/80 tracking-wide">
+              {title}
+            </p>
+
+            {/* VALUE */}
+            {isMoney ? (
+              <div className="mt-3 flex items-end gap-1">
+                <span className="text-sm opacity-80 mb-1">Rp</span>
+
+                <h1 className="text-3xl font-bold tracking-tight leading-none">
+                  {formattedMoney}
+                </h1>
+              </div>
+            ) : (
+              <h1 className="mt-3 text-3xl font-bold leading-none">
+                {safeValue}
+              </h1>
+            )}
+
+            {/* SUBTITLE */}
+            {subtitle && (
+              <p className="mt-2 text-xs text-white/70">{subtitle}</p>
+            )}
+          </div>
+
+          {/* TREND */}
+          <div className="mt-5 flex items-center gap-2">
+            <div
+              className={`
+                flex items-center gap-1
+                px-2 py-1 rounded-full
+                bg-white/15 backdrop-blur-sm
+                text-xs font-medium
+                ${trendColor}
+              `}
+            >
+              <TrendIcon size={12} />
+
+              <span>
+                {trend > 0 ? "+" : ""}
+                {trend}%
+              </span>
+            </div>
+
+            {badge && <span className="text-xs text-white/70">{badge}</span>}
+          </div>
+        </div>
+
+        {/* ================================================= */}
+        {/* 🔥 ICON */}
+        {/* ================================================= */}
+        <div
+          className="
+            bg-white/15
+            backdrop-blur-md
+            p-4
+            rounded-2xl
+            border border-white/10
+            shadow-lg
+          "
+        >
+          {Icon && <Icon size={26} className="text-white" />}
+        </div>
       </div>
 
-      {/* ICON */}
-      <div className="bg-white/20 p-3 rounded-xl">
-        {Icon && <Icon size={20} />}
-      </div>
-    </div>
+      {/* ================================================= */}
+      {/* 🔥 BOTTOM LIGHT */}
+      {/* ================================================= */}
+      <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white/20" />
+    </motion.div>
   );
 }

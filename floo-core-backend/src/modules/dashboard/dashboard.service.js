@@ -552,7 +552,65 @@ const getOwnerDashboard = async () => {
 
       createdAt: loan.createdAt,
     }));
+    // ============================
+    // 🔥 RISK ALERTS
+    // ============================
+    const riskAlerts = [];
 
+    // 🚨 CASH KRITIS
+    if (balance.balance < 0) {
+      riskAlerts.push({
+        type: "danger",
+
+        title: "Cash balance minus",
+
+        description: "Saldo kas berada dibawah batas aman",
+      });
+    }
+
+    // ⚠ BAD LOAN
+    if (badLoans >= 3) {
+      riskAlerts.push({
+        type: "warning",
+
+        title: `${badLoans} bad loans detected`,
+
+        description: "Terdapat pinjaman overdue berisiko tinggi",
+      });
+    }
+
+    // ⚠ PENDING MENUMPUK
+    if (pendingFinalApproval >= 5) {
+      riskAlerts.push({
+        type: "warning",
+
+        title: "Pending approval meningkat",
+
+        description: `${pendingFinalApproval} pengajuan menunggu approval owner`,
+      });
+    }
+
+    // ⚠ OUTSTANDING BESAR
+    if ((Number(totalOutstandingRaw) || 0) > 10000000) {
+      riskAlerts.push({
+        type: "danger",
+
+        title: "Outstanding tinggi",
+
+        description: "Total outstanding melebihi batas monitoring",
+      });
+    }
+
+    // ✅ SEMUA AMAN
+    if (riskAlerts.length === 0) {
+      riskAlerts.push({
+        type: "safe",
+
+        title: "Business running healthy",
+
+        description: "Tidak ada risiko kritis terdeteksi",
+      });
+    }
     // ============================
     // 🔥 TOP OUTSTANDING
     // ============================
@@ -608,6 +666,8 @@ const getOwnerDashboard = async () => {
       },
 
       cashflow,
+
+      riskAlerts,
 
       activities,
 

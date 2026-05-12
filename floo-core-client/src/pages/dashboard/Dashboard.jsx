@@ -1,5 +1,7 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
+
 import Layout from "../../components/layout/LayoutTest";
+
 import api from "../../api/api";
 
 import {
@@ -10,16 +12,20 @@ import {
 } from "lucide-react";
 
 import FinanceCard from "../../components/ui/FinanceCard";
-import StatCard from "../../components/ui/StatCard";
-import ActivityItem from "../../components/dashboard/ActivityItem";
-import CashflowChart from "../../components/dashboard/CashflowChart";
-import TopDebtor from "../../components/dashboard/TopDebtor";
 
-import dayjs from "dayjs";
+import StatCard from "../../components/ui/StatCard";
+
+import CashflowChart from "../../components/dashboard/CashflowChart";
+
+import ActivityList from "../../components/dashboard/ActivityList";
+
+import TopOutstanding from "../../components/dashboard/TopOutstanding";
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
 
   // =========================================================
@@ -28,12 +34,15 @@ export default function Dashboard() {
   const fetchDashboard = async () => {
     try {
       setLoading(true);
+
       setError("");
 
       const res = await api.get("/dashboard");
+
       setData(res.data.data);
     } catch (err) {
       console.error(err);
+
       setError("Gagal load dashboard");
     } finally {
       setLoading(false);
@@ -44,38 +53,12 @@ export default function Dashboard() {
     fetchDashboard();
   }, []);
 
+  // =========================================================
+  // 🔥 HELPER
+  // =========================================================
   const s = data?.summary || {};
+
   const safe = (v) => Number(v) || 0;
-
-  // =========================================================
-  // 🔥 ACTIVITY (ULTRA SAFE)
-  // =========================================================
-  const activities = useMemo(() => {
-    if (!data?.activities) return [];
-
-    return data.activities
-      .map((item) => {
-        const date = item.date ? dayjs(item.date).toDate() : new Date();
-
-        return {
-          id: item.id,
-          type: item.type === "in" ? "in" : "out",
-          amount: Number(item.amount) || 0,
-          source: item.source || "payment",
-
-          // 🔥 fallback pintar
-          employee:
-            item.employee && item.employee !== "-"
-              ? item.employee
-              : item.source === "loan"
-                ? "Pencairan"
-                : "Pembayaran",
-
-          date,
-        };
-      })
-      .sort((a, b) => dayjs(b.date).diff(dayjs(a.date))); // 🔥 selalu newest
-  }, [data]);
 
   // =========================================================
   // 🔥 KPI ATAS
@@ -83,37 +66,90 @@ export default function Dashboard() {
   const financeCards = [
     {
       title: "Total Pegawai",
+
       value: safe(s.totalEmployees),
+
       icon: Users,
-      color: "from-orange-400 to-orange-500",
+
+      color: "from-orange-500 to-orange-600",
+
       isMoney: false,
+
+      trend: 5,
+
+      subtitle: "Pegawai terdaftar aktif",
+
+      badge: "Employee",
     },
+
     {
       title: "Total Pinjaman",
+
       value: safe(s.totalLoan),
+
       icon: Wallet,
-      color: "from-green-400 to-green-500",
+
+      color: "from-green-500 to-emerald-600",
+
+      trend: 12,
+
+      subtitle: "Total dana dipinjamkan",
+
+      badge: "Growth",
     },
+
     {
       title: "Sisa Hutang",
+
       value: safe(s.totalRemaining),
+
       icon: TrendingUp,
-      color: "from-purple-400 to-purple-500",
+
+      color: "from-purple-500 to-violet-600",
+
+      trend: 7,
+
+      subtitle: "Outstanding pinjaman aktif",
+
+      badge: "Outstanding",
     },
+
     {
       title: "Pembayaran",
+
       value: safe(s.totalPayment),
+
       icon: ActivityIcon,
-      color: "from-blue-400 to-blue-500",
+
+      color: "from-blue-500 to-blue-600",
+
+      trend: 10,
+
+      subtitle: "Total pembayaran masuk",
+
+      badge: "Collection",
     },
+
     {
       title: "Saldo Kas",
+
       value: safe(s.cashBalance),
+
       icon: Wallet,
+
       color:
-        s.cashBalance >= 0
-          ? "from-yellow-400 to-yellow-500"
-          : "from-red-400 to-red-500",
+        safe(s.cashBalance) >= 0
+          ? "from-yellow-500 to-amber-600"
+          : "from-red-500 to-red-700",
+
+      trend: safe(s.cashBalance) >= 0 ? 15 : -10,
+
+      subtitle:
+        safe(s.cashBalance) >= 0
+          ? "Cashflow dalam kondisi aman"
+          : "Cashflow kritis",
+
+      badge: safe(s.cashBalance) >= 0 ? "Healthy" : "Critical",
     },
   ];
 
@@ -121,19 +157,35 @@ export default function Dashboard() {
   // 🔥 KPI BAWAH
   // =========================================================
   const statCards = [
-    { title: "Loan Aktif", value: safe(s.activeLoans) },
-    { title: "Loan Lunas", value: safe(s.paidLoans) },
+    {
+      title: "Loan Aktif",
+
+      value: safe(s.activeLoans),
+    },
+
+    {
+      title: "Loan Lunas",
+
+      value: safe(s.paidLoans),
+    },
+
     {
       title: "Collection Rate",
+
       value: `${safe(s.collectionRate).toFixed(1)}%`,
+
       highlight: true,
     },
+
     {
       title: "Cash In",
+
       value: `Rp ${safe(s.cashIn).toLocaleString("id-ID")}`,
     },
+
     {
       title: "Cash Out",
+
       value: `Rp ${safe(s.cashOut).toLocaleString("id-ID")}`,
     },
   ];
@@ -144,9 +196,12 @@ export default function Dashboard() {
   if (loading) {
     return (
       <Layout>
-        <div className="animate-pulse grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-24 bg-gray-200 rounded-xl" />
+            <div
+              key={i}
+              className="h-36 rounded-3xl bg-gray-200 animate-pulse"
+            />
           ))}
         </div>
       </Layout>
@@ -161,9 +216,18 @@ export default function Dashboard() {
       <Layout>
         <div className="text-center py-10">
           <p className="text-red-500">{error}</p>
+
           <button
             onClick={fetchDashboard}
-            className="mt-3 px-4 py-2 bg-blue-500 text-white rounded"
+            className="
+              mt-3
+              px-4 py-2
+              bg-blue-500
+              hover:bg-blue-600
+              text-white
+              rounded-xl
+              transition
+            "
           >
             Retry
           </button>
@@ -172,63 +236,88 @@ export default function Dashboard() {
     );
   }
 
-  if (!data) return <Layout>Data tidak ditemukan</Layout>;
+  // =========================================================
+  // 🔥 EMPTY
+  // =========================================================
+  if (!data) {
+    return (
+      <Layout>
+        <div className="py-10 text-center text-gray-500">
+          Data tidak ditemukan
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
-      {/* HEADER */}
-      <div className="mb-6 flex justify-between items-center">
+      {/* ================================================= */}
+      {/* 🔥 HEADER */}
+      {/* ================================================= */}
+      <div className="mb-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Dashboard Keuangan</h1>
-          <p className="text-gray-500 text-sm">
-            Monitoring pinjaman & cashflow
+          <h1 className="text-3xl font-bold text-gray-900">
+            Dashboard Keuangan
+          </h1>
+
+          <p className="text-sm text-gray-500 mt-1">
+            Monitoring pinjaman & cashflow perusahaan
           </p>
         </div>
 
         <button
           onClick={fetchDashboard}
-          className="text-sm px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+          className="
+            px-5 py-2.5
+            rounded-xl
+            bg-gray-900
+            hover:bg-black
+            text-white
+            text-sm
+            font-medium
+            transition
+          "
         >
-          Refresh
+          Refresh Dashboard
         </button>
       </div>
 
-      {/* KPI */}
+      {/* ================================================= */}
+      {/* 🔥 KPI ATAS */}
+      {/* ================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
         {financeCards.map((item, i) => (
           <FinanceCard key={i} {...item} />
         ))}
       </div>
 
-      {/* KPI */}
+      {/* ================================================= */}
+      {/* 🔥 KPI BAWAH */}
+      {/* ================================================= */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6 mt-6">
         {statCards.map((item, i) => (
           <StatCard key={i} {...item} />
         ))}
       </div>
 
-      {/* CHART + ACTIVITY */}
+      {/* ================================================= */}
+      {/* 🔥 CHART + ACTIVITY */}
+      {/* ================================================= */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-8">
+        {/* CHART */}
         <div className="xl:col-span-2">
-          <CashflowChart data={data.cashflow || []} />
+          <CashflowChart data={data?.cashflow || []} />
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow">
-          <h2 className="font-semibold mb-4">Aktivitas</h2>
-
-          <div className="space-y-3 max-h-[260px] overflow-auto">
-            {activities.length > 0 ? (
-              activities.map((trx) => <ActivityItem key={trx.id} trx={trx} />)
-            ) : (
-              <p className="text-sm text-gray-400">Belum ada aktivitas</p>
-            )}
-          </div>
-        </div>
+        {/* ACTIVITY */}
+        <ActivityList data={data?.activities || []} />
       </div>
 
-      {/* TOP DEBTOR */}
-      <div className="mt-6">
-        <TopDebtor data={data.topDebtors || []} />
+      {/* ================================================= */}
+      {/* 🔥 TOP OUTSTANDING */}
+      {/* ================================================= */}
+      <div className="mt-8">
+        <TopOutstanding data={data?.topDebtors || []} />
       </div>
     </Layout>
   );
