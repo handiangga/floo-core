@@ -1,6 +1,8 @@
 import LoanDocumentCard from "./LoanDocumentCard";
 
 export default function LoanDocumentSection({ loan }) {
+  console.log("Loan Full : ", loan);
+
   if (!loan) return null;
 
   const hasDocuments =
