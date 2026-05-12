@@ -347,7 +347,13 @@ export default function OwnerDashboard() {
           </div>
         </div>
 
-        <div className="overflow-auto max-h-[420px]">
+        <div
+          className={
+            data?.finalApprovals?.length > 0
+              ? "overflow-auto max-h-[420px]"
+              : ""
+          }
+        >
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-white z-10">
               <tr className="border-b border-gray-100">
@@ -454,7 +460,7 @@ export default function OwnerDashboard() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-gray-400">
+                  <td colSpan={5} className="py-6 text-center text-gray-400">
                     Tidak ada pending approval
                   </td>
                 </tr>
@@ -467,9 +473,9 @@ export default function OwnerDashboard() {
       {/* ================================================= */}
       {/* 🔥 CASHFLOW + ACTIVITY */}
       {/* ================================================= */}
-      <div className="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="mt-8 grid grid-cols-1 2xl:grid-cols-4 gap-6">
         {/* CHART */}
-        <div className="xl:col-span-2">
+        <div className="2xl:col-span-3">
           <CashflowChart data={data?.cashflow || []} />
         </div>
 

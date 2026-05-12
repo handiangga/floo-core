@@ -56,7 +56,7 @@ export default function FinanceCard({
         rounded-3xl
         shadow-lg
         border border-white/10
-        min-h-[150px]
+        min-h-[125px]
       `}
     >
       {/* ================================================= */}
@@ -81,12 +81,12 @@ export default function FinanceCard({
               <div className="mt-3 flex items-end gap-1">
                 <span className="text-sm opacity-80 mb-1">Rp</span>
 
-                <h1 className="text-3xl font-bold tracking-tight leading-none">
+                <h1 className="text-2xl font-bold tracking-tight leading-none">
                   {formattedMoney}
                 </h1>
               </div>
             ) : (
-              <h1 className="mt-3 text-3xl font-bold leading-none">
+              <h1 className="mt-3 text-2xl font-bold leading-none">
                 {safeValue}
               </h1>
             )}
@@ -98,7 +98,7 @@ export default function FinanceCard({
           </div>
 
           {/* TREND */}
-          <div className="mt-5 flex items-center gap-2">
+          <div className="mt-3 flex items-center gap-2">
             <div
               className={`
                 flex items-center gap-1

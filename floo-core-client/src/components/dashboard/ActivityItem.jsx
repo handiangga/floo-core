@@ -14,7 +14,12 @@ export default function ActivityItem({ trx }) {
         : "Pembayaran";
 
   // 🔥 ambil inisial
-  const initial = name.charAt(0).toUpperCase();
+  const initial =
+    name && name !== "-"
+      ? name.charAt(0).toUpperCase()
+      : trx.source === "loan"
+        ? "L"
+        : "P";
 
   return (
     <div className="flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition p-3 rounded-xl">

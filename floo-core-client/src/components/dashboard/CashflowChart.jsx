@@ -202,7 +202,18 @@ export default function CashflowChart({ data = [] }) {
 
             {/* Y */}
             <YAxis
-              tickFormatter={(value) => `${(value / 1000000).toFixed(1)}jt`}
+              domain={["auto", "auto"]}
+              tickFormatter={(value) => {
+                if (value >= 1000000) {
+                  return `${(value / 1000000).toFixed(1)}jt`;
+                }
+
+                if (value >= 1000) {
+                  return `${(value / 1000).toFixed(0)}rb`;
+                }
+
+                return value;
+              }}
               tick={{
                 fontSize: 12,
                 fill: "#94a3b8",
