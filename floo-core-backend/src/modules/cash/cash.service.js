@@ -1,8 +1,43 @@
 const db = require("../../../models");
 
-const { Cashflow } = db;
+const { Cashflow, Loan, Employee } = db;
 
 const { fn, col, literal } = require("sequelize");
+
+// =====================================================
+// 🔥 HELPER FILL DATES
+// =====================================================
+const fillDates = (rows, days = 14) => {
+  const map = {};
+
+  rows.forEach((r) => {
+    map[r.date] = r;
+  });
+
+  const result = [];
+
+  const now = new Date();
+
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+
+    d.setDate(d.getDate() - i);
+
+    const key = d.toISOString().slice(0, 10);
+
+    result.push(
+      map[key] || {
+        date: key,
+
+        masuk: 0,
+
+        keluar: 0,
+      },
+    );
+  }
+
+  return result;
+};
 
 // =====================================================
 // 🔥 GET CASH BALANCE
@@ -65,34 +100,40 @@ const getCashflowChart = async () => {
     raw: true,
   });
 
-  // ===============================================
+  // =====================================================
   // 🔥 GROUPING
-  // ===============================================
+  // =====================================================
   const grouped = {};
 
   for (const item of result) {
     const date = item.date;
 
+    const total = Number(item.total) || 0;
+
     if (!grouped[date]) {
       grouped[date] = {
         date,
 
-        cashIn: 0,
+        masuk: 0,
 
-        cashOut: 0,
+        keluar: 0,
       };
     }
 
     if (item.type === "in") {
-      grouped[date].cashIn = Number(item.total) || 0;
+      grouped[date].masuk += total;
     }
 
     if (item.type === "out") {
-      grouped[date].cashOut = Number(item.total) || 0;
+      grouped[date].keluar += total;
     }
   }
 
-  return Object.values(grouped);
+  let cashflow = Object.values(grouped);
+
+  cashflow = fillDates(cashflow, 14);
+
+  return cashflow;
 };
 
 // =====================================================
@@ -104,7 +145,27 @@ const getRecentActivities = async (limit = 10) => {
 
     order: [["createdAt", "DESC"]],
 
-    raw: true,
+    include: [
+      {
+        model: Loan,
+
+        as: "Loan",
+
+        required: false,
+
+        include: [
+          {
+            model: Employee,
+
+            as: "Employee",
+
+            attributes: ["name"],
+
+            required: false,
+          },
+        ],
+      },
+    ],
   });
 
   return result.map((item) => ({
@@ -119,6 +180,8 @@ const getRecentActivities = async (limit = 10) => {
     description: item.description || "-",
 
     date: item.createdAt,
+
+    employee: item.Loan?.Employee?.name || "-",
   }));
 };
 

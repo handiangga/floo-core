@@ -514,7 +514,19 @@ const getOwnerDashboard = async () => {
 
     const cashflow = await cashService.getCashflowChart();
 
-    const activities = await cashService.getRecentActivities();
+    const rawActivities = await cashService.getRecentActivities();
+
+    // 🔥 normalize activity
+    const activities = rawActivities.map((item) => ({
+      ...item,
+
+      employee:
+        item.employee && item.employee !== "-" && item.employee !== "null"
+          ? item.employee
+          : item.source === "loan"
+            ? "Pencairan"
+            : "Pembayaran",
+    }));
 
     // ============================
     // 🔥 FINAL APPROVAL
@@ -552,6 +564,7 @@ const getOwnerDashboard = async () => {
 
       createdAt: loan.createdAt,
     }));
+
     // ============================
     // 🔥 RISK ALERTS
     // ============================
@@ -611,6 +624,7 @@ const getOwnerDashboard = async () => {
         description: "Tidak ada risiko kritis terdeteksi",
       });
     }
+
     // ============================
     // 🔥 TOP OUTSTANDING
     // ============================

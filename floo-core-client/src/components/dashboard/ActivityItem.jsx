@@ -7,7 +7,7 @@ export default function ActivityItem({ trx }) {
 
   // 🔥 fallback employee
   const name =
-    trx.employee && trx.employee !== "-"
+    trx.employee && trx.employee !== "-" && trx.employee !== "null"
       ? trx.employee
       : trx.source === "loan"
         ? "Pencairan"
@@ -41,7 +41,7 @@ export default function ActivityItem({ trx }) {
 
       {/* INFO */}
       <div className="flex-1">
-        <p className="font-medium capitalize">{name}</p>
+        <p className="font-semibold text-gray-800">{name}</p>
         <p className="text-xs text-gray-400">
           {trx.source === "loan" ? "Pencairan pinjaman" : "Pembayaran pinjaman"}
         </p>
