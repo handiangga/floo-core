@@ -37,10 +37,7 @@ export default function DetailLoan() {
     setDisburseProof,
 
     // STATUS
-    isPending,
-    isWaitingSignature,
     isSigned,
-    isDisbursed,
     isRejected,
     canPay,
 
@@ -61,9 +58,9 @@ export default function DetailLoan() {
     navigate,
   } = useDetailLoan();
 
-  // =========================
+  // =====================================
   // LOADING
-  // =========================
+  // =====================================
   if (loading || !loan) {
     return (
       <Layout>
@@ -79,13 +76,19 @@ export default function DetailLoan() {
   return (
     <Layout>
       <div className="p-6 space-y-6">
-        {/* ======================================
+        {/* =====================================
             HEADER
-        ====================================== */}
+        ===================================== */}
         <div>
           <button
             onClick={() => navigate("/loans")}
-            className="text-sm mb-3 text-gray-500 hover:text-black transition"
+            className="
+              text-sm
+              mb-3
+              text-gray-500
+              hover:text-black
+              transition
+            "
           >
             ← Kembali
           </button>
@@ -93,23 +96,28 @@ export default function DetailLoan() {
           <h1 className="text-4xl font-bold text-gray-800">Loan Detail</h1>
 
           <p className="text-gray-500 mt-2 text-lg">
-            {loan.Employee?.name || "-"}
+            {loan?.Employee?.name || "-"}
           </p>
         </div>
 
-        {/* ======================================
+        {/* =====================================
             STATUS ALERT
-        ====================================== */}
+        ===================================== */}
         <LoanStatusAlert loan={loan} />
 
-        {/* ======================================
+        {/* =====================================
             INFO CARD
-        ====================================== */}
+        ===================================== */}
         <LoanInfoCard loan={loan} />
 
-        {/* ======================================
+        {/* =====================================
+            DOCUMENT SECTION
+        ===================================== */}
+        <LoanDocumentSection loan={loan} />
+
+        {/* =====================================
             DISBURSE PROOF
-        ====================================== */}
+        ===================================== */}
         {isSigned && user?.role === "admin" && (
           <div className="bg-white border rounded-3xl p-6 shadow-sm space-y-5">
             <div>
@@ -136,16 +144,27 @@ export default function DetailLoan() {
             />
 
             {disburseProof && (
-              <div className="bg-green-50 border border-green-200 rounded-2xl px-4 py-3 text-sm text-green-700">
+              <div
+                className="
+                  bg-green-50
+                  border
+                  border-green-200
+                  rounded-2xl
+                  px-4
+                  py-3
+                  text-sm
+                  text-green-700
+                "
+              >
                 ✅ {disburseProof.name}
               </div>
             )}
           </div>
         )}
 
-        {/* ======================================
+        {/* =====================================
             ACTIONS
-        ====================================== */}
+        ===================================== */}
         {!isRejected && (
           <LoanActions
             loan={loan}
@@ -161,14 +180,9 @@ export default function DetailLoan() {
           />
         )}
 
-        {/* ======================================
-            DOCUMENTS
-        ====================================== */}
-        {loan && <LoanDocumentSection loan={loan} />}
-
-        {/* ======================================
+        {/* =====================================
             PAYMENT
-        ====================================== */}
+        ===================================== */}
         {canPay && (
           <LoanPayment
             loan={loan}
@@ -184,9 +198,9 @@ export default function DetailLoan() {
           />
         )}
 
-        {/* ======================================
+        {/* =====================================
             HISTORY
-        ====================================== */}
+        ===================================== */}
         <LoanHistory transactions={transactions || []} />
       </div>
     </Layout>
