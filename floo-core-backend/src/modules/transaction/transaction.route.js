@@ -1,89 +1,472 @@
-const express = require("express");
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
-const controller = require("./transaction.controller");
+import Swal from "sweetalert2";
 
-const { verifyToken } = require("../../middlewares/auth.middleware");
+import api from "../services/api";
 
-const rbac = require("../../middlewares/rbac.middleware");
+// ======================================
+// HOOK
+// ======================================
+export default function useDetailLoan() {
+  const { id } = useParams();
 
-const cache = require("../../middlewares/cache.middleware");
+  const navigate = useNavigate();
 
-// 🔥 upload middleware
-const { upload, processUpload } = require("../../middlewares/upload");
+  // ======================================
+  // STATE
+  // ======================================
+  const [loan, setLoan] = useState(null);
 
-// 🔥 validation
-const { transactionIdParam } = require("./transaction.validation");
+  const [transactions, setTransactions] = useState([]);
 
-const validate = require("../../middlewares/validate.middleware");
+  const [loading, setLoading] = useState(true);
 
-const router = express.Router();
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
-// ============================
-// 🔥 GET ALL
-// ============================
-router.get(
-  "/",
+  const [disburseLoading, setDisburseLoading] = useState(false);
 
-  verifyToken,
+  // ======================================
+  // PAYMENT
+  // ======================================
+  const [amount, setAmount] = useState("");
 
-  cache(
-    (req) =>
-      `transactions:${req.query.loan_id || "all"}:${req.query.page || 1}`,
-  ),
+  const [proofFile, setProofFile] = useState(null);
 
-  controller.getAllTransactions,
-);
+  const [preview, setPreview] = useState(null);
 
-// ============================
-// 🔥 DETAIL
-// ============================
-router.get(
-  "/:id",
+  // ======================================
+  // DISBURSE
+  // ======================================
+  const [disburseProof, setDisburseProof] = useState(null);
 
-  verifyToken,
+  // ======================================
+  // USER
+  // ======================================
+  const user = JSON.parse(localStorage.getItem("user"));
 
-  validate(transactionIdParam, "params"),
+  // ======================================
+  // FETCH LOAN
+  // ======================================
+  const fetchLoan = async () => {
+    try {
+      setLoading(true);
 
-  controller.getTransactionById,
-);
+      // =========================
+      // LOAN DETAIL
+      // =========================
+      const loanRes = await api.get(`/loans/${id}`);
 
-// ============================
-// 🔥 CREATE PAYMENT
-// ============================
-router.post(
-  "/",
+      const loanData = loanRes?.data?.data || loanRes?.data;
 
-  verifyToken,
+      console.log("Loan Full :", loanData);
 
-  rbac(["admin", "owner"]),
+      setLoan(loanData);
 
-  // 🔥 upload bukti pembayaran
-  upload.fields([
-    {
-      name: "proof",
-      maxCount: 1,
-    },
-  ]),
+      // =========================
+      // TRANSACTIONS
+      // =========================
+      try {
+        const trxRes = await api.get(`/transactions?loan_id=${id}`);
 
-  // 🔥 upload ke supabase storage
-  processUpload("transaction"),
+        console.log("TRANSACTIONS :", trxRes.data);
 
-  controller.createTransaction,
-);
+        const trxData = trxRes?.data?.data?.data || trxRes?.data?.data || [];
 
-// ============================
-// 🔥 DELETE
-// ============================
-router.delete(
-  "/:id",
+        setTransactions(Array.isArray(trxData) ? trxData : []);
+      } catch (trxErr) {
+        console.error("Get transactions failed:", trxErr);
 
-  verifyToken,
+        setTransactions([]);
+      }
+    } catch (err) {
+      console.error(err);
 
-  validate(transactionIdParam, "params"),
+      Swal.fire("Error", "Gagal mengambil detail loan", "error");
 
-  rbac(["admin"]),
+      navigate("/loans");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  controller.deleteTransaction,
-);
+  // ======================================
+  // EFFECT
+  // ======================================
+  useEffect(() => {
+    fetchLoan();
+  }, [id]);
 
-module.exports = router;
+  // ======================================
+  // PAYMENT
+  // ======================================
+  const handlePayment = async () => {
+    try {
+      if (!amount) {
+        return Swal.fire("Error", "Nominal wajib diisi", "error");
+      }
+
+      if (!proofFile) {
+        return Swal.fire("Error", "Upload bukti pembayaran", "error");
+      }
+
+      const cleanAmount = Number(String(amount).replace(/\D/g, ""));
+
+      if (!cleanAmount || cleanAmount <= 0) {
+        return Swal.fire("Error", "Nominal tidak valid", "error");
+      }
+
+      if (cleanAmount > loan.remaining_amount) {
+        return Swal.fire("Error", "Melebihi sisa pinjaman", "error");
+      }
+
+      setPaymentLoading(true);
+
+      const formData = new FormData();
+
+      formData.append("loan_id", loan.id);
+
+      formData.append("amount", cleanAmount);
+
+      formData.append("proof", proofFile);
+
+      // ✅ FIX ROUTE
+      await api.post("/transactions", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      Swal.fire("Berhasil", "Pembayaran berhasil", "success");
+
+      // RESET
+      setAmount("");
+
+      setProofFile(null);
+
+      setPreview(null);
+
+      // REFRESH
+      fetchLoan();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Pembayaran gagal",
+        "error",
+      );
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // ======================================
+  // MANAGER APPROVE
+  // ======================================
+  const handleApproveManager = async () => {
+    try {
+      setPaymentLoading(true);
+
+      await api.post(`/loans/${id}/approve-manager`);
+
+      Swal.fire("Berhasil", "Pengajuan diteruskan ke owner", "success");
+
+      fetchLoan();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Approve manager failed",
+        "error",
+      );
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // ======================================
+  // MANAGER REJECT
+  // ======================================
+  const handleRejectManager = async () => {
+    const { value } = await Swal.fire({
+      title: "Alasan Reject",
+      input: "textarea",
+      inputPlaceholder: "Masukkan alasan reject...",
+      showCancelButton: true,
+    });
+
+    if (!value) return;
+
+    try {
+      setPaymentLoading(true);
+
+      await api.post(`/loans/${id}/reject-manager`, {
+        reason: value,
+      });
+
+      Swal.fire("Berhasil", "Pengajuan ditolak manager", "success");
+
+      fetchLoan();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Reject manager failed",
+        "error",
+      );
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // ======================================
+  // OWNER APPROVE
+  // ======================================
+  const handleApproveOwner = async () => {
+    try {
+      setPaymentLoading(true);
+
+      await api.post(`/loans/${id}/approve-owner`);
+
+      Swal.fire("Berhasil", "Pengajuan disetujui owner", "success");
+
+      fetchLoan();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Approve owner failed",
+        "error",
+      );
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // ======================================
+  // OWNER REJECT
+  // ======================================
+  const handleRejectOwner = async () => {
+    const { value } = await Swal.fire({
+      title: "Alasan Reject",
+      input: "textarea",
+      inputPlaceholder: "Masukkan alasan reject...",
+      showCancelButton: true,
+    });
+
+    if (!value) return;
+
+    try {
+      setPaymentLoading(true);
+
+      await api.post(`/loans/${id}/reject-owner`, {
+        reason: value,
+      });
+
+      Swal.fire("Berhasil", "Pengajuan ditolak owner", "success");
+
+      fetchLoan();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Reject owner failed",
+        "error",
+      );
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // ======================================
+  // DOWNLOAD PDF
+  // ======================================
+  const handleDownloadPdf = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await api.get(`/loans/${id}/pdf`, {
+        responseType: "blob",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const file = new Blob([response.data], {
+        type: "application/pdf",
+      });
+
+      const fileURL = window.URL.createObjectURL(file);
+
+      window.open(fileURL, "_blank");
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Download PDF gagal",
+        "error",
+      );
+    }
+  };
+
+  // ======================================
+  // UPLOAD SIGNATURE
+  // ======================================
+  const handleUploadSignature = async () => {
+    const { value: file } = await Swal.fire({
+      title: "Upload Dokumen TTD",
+      input: "file",
+      inputAttributes: {
+        accept: ".pdf,image/*",
+      },
+    });
+
+    if (!file) return;
+
+    try {
+      setPaymentLoading(true);
+
+      const formData = new FormData();
+
+      formData.append("signed_contract", file);
+
+      await api.post(`/loans/${id}/upload-contract`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      Swal.fire("Berhasil", "Dokumen berhasil diupload", "success");
+
+      fetchLoan();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Upload gagal",
+        "error",
+      );
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // ======================================
+  // DISBURSE
+  // ======================================
+  const handleDisburse = async () => {
+    try {
+      if (!disburseProof) {
+        return Swal.fire("Error", "Upload bukti pencairan", "error");
+      }
+
+      setDisburseLoading(true);
+
+      const formData = new FormData();
+
+      formData.append("proof", disburseProof);
+
+      await api.post(`/loans/${id}/disburse`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      Swal.fire("Berhasil", "Dana berhasil dicairkan", "success");
+
+      setDisburseProof(null);
+
+      fetchLoan();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Disburse gagal",
+        "error",
+      );
+    } finally {
+      setDisburseLoading(false);
+    }
+  };
+
+  // ======================================
+  // STATUS
+  // ======================================
+  const isPending =
+    loan?.status === "pending_manager" || loan?.status === "pending_owner";
+
+  const isWaitingSignature = loan?.status === "waiting_signature";
+
+  const isSigned = loan?.status === "signed";
+
+  const isDisbursed = loan?.status === "ongoing" || loan?.status === "paid";
+
+  const isRejected =
+    loan?.status === "rejected_manager" || loan?.status === "rejected_owner";
+
+  const canPay = loan?.status === "ongoing";
+
+  // ======================================
+  // RETURN
+  // ======================================
+  return {
+    // DATA
+    loan,
+    transactions,
+    user,
+
+    // STATE
+    loading,
+    paymentLoading,
+    disburseLoading,
+
+    // FORM
+    amount,
+    setAmount,
+
+    proofFile,
+    setProofFile,
+
+    preview,
+    setPreview,
+
+    // DISBURSE
+    disburseProof,
+    setDisburseProof,
+
+    // STATUS
+    isPending,
+    isWaitingSignature,
+    isSigned,
+    isDisbursed,
+    isRejected,
+    canPay,
+
+    // ACTIONS
+    handlePayment,
+    handleDisburse,
+
+    handleApproveManager,
+    handleRejectManager,
+
+    handleApproveOwner,
+    handleRejectOwner,
+
+    handleDownloadPdf,
+    handleUploadSignature,
+
+    // NAV
+    navigate,
+
+    // REFRESH
+    fetchLoan,
+  };
+}

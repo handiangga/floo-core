@@ -122,7 +122,7 @@ const generateDisbursementReceiptPdf = async (loan, employee) => {
       doc.text(`: ${employee?.position || "-"}`, 180, doc.y - 15);
 
       doc.text("Jumlah Pencairan", 50);
-      doc.text(`: Rp ${rupiah(loan?.total_amount)}`, 180, doc.y - 15);
+      doc.text(`: Rp ${rupiah(loan?.principal_amount)}`, 180, doc.y - 15);
 
       doc.text("Metode Pencairan", 50);
       doc.text(
