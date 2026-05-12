@@ -1,28 +1,37 @@
 const express = require("express");
 const controller = require("./dashboard.controller");
 
-const { verifyToken } = require("../../middlewares/auth.middleware");
+const {
+  verifyToken,
+  allowRoles,
+} = require("../../middlewares/auth.middleware");
 
 const cache = require("../../middlewares/cache.middleware");
 
 const router = express.Router();
 
 // ======================================================
-// 🔥 ADMIN (EXISTING)
+// 🔥 ADMIN DASHBOARD
 // ======================================================
 router.get(
   "/",
+
   verifyToken,
+
+  allowRoles("admin"),
 
   cache((req) => {
     try {
       const role = req.user?.role || "guest";
+
       const start = req.query.start_date || "all";
+
       const end = req.query.end_date || "all";
 
       return `dashboard:${role}:${start}:${end}`;
     } catch (err) {
       console.log("CACHE KEY ERROR:", err.message);
+
       return "dashboard:fallback";
     }
   }),
@@ -31,11 +40,14 @@ router.get(
 );
 
 // ======================================================
-// 🔥 MANAGER
+// 🔥 MANAGER DASHBOARD
 // ======================================================
 router.get(
   "/manager",
+
   verifyToken,
+
+  allowRoles("manager"),
 
   cache((req) => {
     const role = req.user?.role || "guest";
@@ -47,11 +59,14 @@ router.get(
 );
 
 // ======================================================
-// 🔥 OWNER
+// 🔥 OWNER DASHBOARD
 // ======================================================
 router.get(
   "/owner",
+
   verifyToken,
+
+  allowRoles("owner"),
 
   cache((req) => {
     const role = req.user?.role || "guest";
