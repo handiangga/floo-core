@@ -101,7 +101,7 @@ export default function useDetailLoan() {
   // PAYMENT
   // ======================================
 
-  const handlePayment = async (type = "installment") => {
+  const handlePayment = async () => {
     try {
       if (!proofFile) {
         return Swal.fire({
@@ -119,8 +119,6 @@ export default function useDetailLoan() {
       formData.append("loan_id", loan.id);
 
       formData.append("amount", cleanAmount);
-
-      formData.append("type", type);
 
       formData.append("proof", proofFile);
 
