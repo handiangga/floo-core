@@ -287,14 +287,34 @@ export default function useDetailLoan() {
   // ======================================
   const handleDownloadPdf = async () => {
     try {
-      window.open(`${import.meta.env.VITE_API_URL}/loans/${id}/pdf`, "_blank");
+      const token = localStorage.getItem("token");
+
+      const response = await api.get(`/loans/${id}/pdf`, {
+        responseType: "blob",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // buat url blob
+      const file = new Blob([response.data], {
+        type: "application/pdf",
+      });
+
+      const fileURL = window.URL.createObjectURL(file);
+
+      // buka pdf
+      window.open(fileURL, "_blank");
     } catch (err) {
       console.error(err);
 
-      Swal.fire("Error", "Download PDF gagal", "error");
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Download PDF gagal",
+        "error",
+      );
     }
   };
-
   // ======================================
   // UPLOAD SIGNATURE
   // ======================================
