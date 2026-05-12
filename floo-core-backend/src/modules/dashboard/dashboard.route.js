@@ -1,15 +1,19 @@
 const express = require("express");
 const controller = require("./dashboard.controller");
+
 const { verifyToken } = require("../../middlewares/auth.middleware");
+
 const cache = require("../../middlewares/cache.middleware");
 
 const router = express.Router();
 
+// ======================================================
+// 🔥 ADMIN (EXISTING)
+// ======================================================
 router.get(
   "/",
   verifyToken,
 
-  // 🔥 SAFE CACHE (tidak akan bikin hang)
   cache((req) => {
     try {
       const role = req.user?.role || "guest";
@@ -24,6 +28,38 @@ router.get(
   }),
 
   controller.getDashboard,
+);
+
+// ======================================================
+// 🔥 MANAGER
+// ======================================================
+router.get(
+  "/manager",
+  verifyToken,
+
+  cache((req) => {
+    const role = req.user?.role || "guest";
+
+    return `dashboard:manager:${role}`;
+  }),
+
+  controller.getManagerDashboard,
+);
+
+// ======================================================
+// 🔥 OWNER
+// ======================================================
+router.get(
+  "/owner",
+  verifyToken,
+
+  cache((req) => {
+    const role = req.user?.role || "guest";
+
+    return `dashboard:owner:${role}`;
+  }),
+
+  controller.getOwnerDashboard,
 );
 
 module.exports = router;

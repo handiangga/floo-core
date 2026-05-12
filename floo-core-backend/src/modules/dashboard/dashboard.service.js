@@ -8,13 +8,17 @@ const { Employee, Loan, Transaction, Cashflow } = db;
 // ============================
 const fillDates = (rows, days = 14) => {
   const map = {};
-  rows.forEach((r) => (map[r.date] = r));
+
+  rows.forEach((r) => {
+    map[r.date] = r;
+  });
 
   const result = [];
   const now = new Date();
 
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now);
+
     d.setDate(d.getDate() - i);
 
     const key = d.toISOString().slice(0, 10);
@@ -32,13 +36,13 @@ const fillDates = (rows, days = 14) => {
 };
 
 // ============================
-// 🔥 MAIN SERVICE (ANTI CRASH)
+// 🔥 ADMIN DASHBOARD
 // ============================
 const getDashboard = async (params = {}) => {
   try {
-    const { user, start_date, end_date } = params;
+    const { user } = params;
 
-    const role = user?.role || "admin"; // 🔥 FIX UTAMA
+    const role = user?.role || "admin";
 
     const now = new Date();
 
@@ -48,11 +52,11 @@ const getDashboard = async (params = {}) => {
     const loanWhere = {};
 
     if (role === "manager") {
-      loanWhere.status = "pending_manager";
+      loanWhere.status = "WAITING_MANAGER_APPROVAL";
     }
 
     if (role === "owner") {
-      loanWhere.status = "pending_owner";
+      loanWhere.status = "WAITING_OWNER_APPROVAL";
     }
 
     // ============================
@@ -76,24 +80,40 @@ const getDashboard = async (params = {}) => {
       Transaction.sum("amount"),
 
       Loan.count({
-        where: { remaining_amount: { [Op.gt]: 0 }, ...loanWhere },
-      }),
-
-      Loan.count({
-        where: { remaining_amount: 0, ...loanWhere },
+        where: {
+          remaining_amount: {
+            [Op.gt]: 0,
+          },
+          ...loanWhere,
+        },
       }),
 
       Loan.count({
         where: {
-          remaining_amount: { [Op.gt]: 0 },
-          due_date: { [Op.lt]: now },
+          remaining_amount: 0,
+          ...loanWhere,
+        },
+      }),
+
+      Loan.count({
+        where: {
+          remaining_amount: {
+            [Op.gt]: 0,
+          },
+
+          due_date: {
+            [Op.lt]: now,
+          },
+
           ...loanWhere,
         },
       }),
     ]);
 
     const totalLoan = Number(totalLoanRaw) || 0;
+
     const totalRemaining = Number(totalRemainingRaw) || 0;
+
     const totalPayment = Number(totalPaymentRaw) || 0;
 
     const collectionRate =
@@ -108,8 +128,11 @@ const getDashboard = async (params = {}) => {
         "type",
         [fn("SUM", col("amount")), "total"],
       ],
+
       group: [fn("DATE", col("createdAt")), "type"],
+
       order: [[literal("date"), "ASC"]],
+
       raw: true,
     });
 
@@ -117,17 +140,24 @@ const getDashboard = async (params = {}) => {
 
     for (const c of cashflowRaw) {
       const date = c.date;
+
       const total = Number(c.total) || 0;
 
       if (!grouped[date]) {
-        grouped[date] = { date, masuk: 0, keluar: 0 };
+        grouped[date] = {
+          date,
+          masuk: 0,
+          keluar: 0,
+        };
       }
 
       if (c.type === "in") grouped[date].masuk += total;
+
       if (c.type === "out") grouped[date].keluar += total;
     }
 
     let cashflow = Object.values(grouped);
+
     cashflow = fillDates(cashflow, 14);
 
     // ============================
@@ -138,17 +168,21 @@ const getDashboard = async (params = {}) => {
         "type",
         [fn("COALESCE", fn("SUM", col("amount")), 0), "total"],
       ],
+
       group: ["type"],
+
       raw: true,
     });
 
     let totalIn = 0;
+
     let totalOut = 0;
 
     for (const c of cashRaw) {
       const total = Number(c.total) || 0;
 
       if (c.type === "in") totalIn += total;
+
       if (c.type === "out") totalOut += total;
     }
 
@@ -159,12 +193,15 @@ const getDashboard = async (params = {}) => {
     // ============================
     const activitiesRaw = await Cashflow.findAll({
       limit: 10,
+
       order: [["createdAt", "DESC"]],
+
       include: [
         {
           model: Loan,
           as: "Loan",
           required: false,
+
           include: [
             {
               model: Employee,
@@ -181,7 +218,9 @@ const getDashboard = async (params = {}) => {
       const employeeName = item.Loan?.Employee?.name;
 
       let label = "-";
+
       if (item.source === "loan") label = "Pinjaman Baru";
+
       if (item.source === "payment") label = "Pembayaran";
 
       return {
@@ -202,9 +241,13 @@ const getDashboard = async (params = {}) => {
         "employee_id",
         [fn("SUM", col("remaining_amount")), "total"],
       ],
+
       group: ["employee_id", "Employee.id"],
+
       order: [[literal("total"), "DESC"]],
+
       limit: 5,
+
       include: [
         {
           model: Employee,
@@ -227,22 +270,314 @@ const getDashboard = async (params = {}) => {
         totalPayment,
         activeLoans,
         paidLoans,
-        collectionRate: Number(collectionRate.toFixed(2)),
         overdueLoans,
+        collectionRate: Number(collectionRate.toFixed(2)),
         cashBalance,
         cashIn: totalIn,
         cashOut: totalOut,
       },
+
       cashflow,
+
       activities,
+
       topDebtors,
     };
   } catch (err) {
     console.error("DASHBOARD ERROR:", err);
+
+    throw err;
+  }
+};
+
+// ============================
+// 🔥 MANAGER DASHBOARD
+// ============================
+const getManagerDashboard = async () => {
+  try {
+    // ============================
+    // 🔥 KPI
+    // ============================
+    const [pendingApproval, approvedLoans, rejectedLoans, activeLoans] =
+      await Promise.all([
+        Loan.count({
+          where: {
+            status: "WAITING_MANAGER_APPROVAL",
+          },
+        }),
+
+        Loan.count({
+          where: {
+            status: "WAITING_OWNER_APPROVAL",
+          },
+        }),
+
+        Loan.count({
+          where: {
+            status: "REJECTED_BY_MANAGER",
+          },
+        }),
+
+        Loan.count({
+          where: {
+            status: "DISBURSED",
+          },
+        }),
+      ]);
+
+    // ============================
+    // 🔥 PENDING APPROVAL
+    // ============================
+    const pendingApprovalsRaw = await Loan.findAll({
+      where: {
+        status: "WAITING_MANAGER_APPROVAL",
+      },
+
+      include: [
+        {
+          model: Employee,
+          as: "Employee",
+          attributes: ["id", "name"],
+        },
+      ],
+
+      order: [["createdAt", "DESC"]],
+
+      limit: 10,
+    });
+
+    const pendingApprovals = pendingApprovalsRaw.map((loan) => ({
+      id: loan.id,
+
+      employee: loan.Employee?.name || "-",
+
+      amount: Number(loan.total_amount) || 0,
+
+      remaining: Number(loan.remaining_amount) || 0,
+
+      tenor: loan.tenor || 0,
+
+      status: loan.status,
+
+      createdAt: loan.createdAt,
+    }));
+
+    // ============================
+    // 🔥 HIGH RISK LOAN
+    // ============================
+    const highRiskRaw = await Loan.findAll({
+      where: {
+        remaining_amount: {
+          [Op.gt]: 0,
+        },
+
+        due_date: {
+          [Op.lt]: new Date(),
+        },
+      },
+
+      include: [
+        {
+          model: Employee,
+          as: "Employee",
+          attributes: ["name"],
+        },
+      ],
+
+      order: [["remaining_amount", "DESC"]],
+
+      limit: 5,
+    });
+
+    const highRiskLoans = highRiskRaw.map((loan) => ({
+      id: loan.id,
+
+      employee: loan.Employee?.name || "-",
+
+      remaining: Number(loan.remaining_amount) || 0,
+
+      dueDate: loan.due_date,
+    }));
+
+    return {
+      summary: {
+        pendingApproval,
+        approvedLoans,
+        rejectedLoans,
+        activeLoans,
+      },
+
+      pendingApprovals,
+
+      highRiskLoans,
+    };
+  } catch (err) {
+    console.error("MANAGER DASHBOARD ERROR:", err);
+
+    throw err;
+  }
+};
+
+// ============================
+// 🔥 OWNER DASHBOARD
+// ============================
+const getOwnerDashboard = async () => {
+  try {
+    // ============================
+    // 🔥 KPI
+    // ============================
+    const [
+      totalOutstandingRaw,
+      totalDisbursedRaw,
+      pendingFinalApproval,
+      badLoans,
+    ] = await Promise.all([
+      Loan.sum("remaining_amount"),
+
+      Loan.sum("total_amount"),
+
+      Loan.count({
+        where: {
+          status: "WAITING_OWNER_APPROVAL",
+        },
+      }),
+
+      Loan.count({
+        where: {
+          remaining_amount: {
+            [Op.gt]: 0,
+          },
+
+          due_date: {
+            [Op.lt]: new Date(),
+          },
+        },
+      }),
+    ]);
+
+    // ============================
+    // 🔥 CASHFLOW
+    // ============================
+    const cashRaw = await Cashflow.findAll({
+      attributes: [
+        "type",
+        [fn("COALESCE", fn("SUM", col("amount")), 0), "total"],
+      ],
+
+      group: ["type"],
+
+      raw: true,
+    });
+
+    let totalIn = 0;
+
+    let totalOut = 0;
+
+    for (const c of cashRaw) {
+      const total = Number(c.total) || 0;
+
+      if (c.type === "in") totalIn += total;
+
+      if (c.type === "out") totalOut += total;
+    }
+
+    const cashBalance = totalIn - totalOut;
+
+    // ============================
+    // 🔥 FINAL APPROVALS
+    // ============================
+    const approvalsRaw = await Loan.findAll({
+      where: {
+        status: "WAITING_OWNER_APPROVAL",
+      },
+
+      include: [
+        {
+          model: Employee,
+          as: "Employee",
+          attributes: ["name"],
+        },
+      ],
+
+      order: [["createdAt", "DESC"]],
+
+      limit: 10,
+    });
+
+    const finalApprovals = approvalsRaw.map((loan) => ({
+      id: loan.id,
+
+      employee: loan.Employee?.name || "-",
+
+      amount: Number(loan.total_amount) || 0,
+
+      tenor: loan.tenor || 0,
+
+      remaining: Number(loan.remaining_amount) || 0,
+
+      createdAt: loan.createdAt,
+    }));
+
+    // ============================
+    // 🔥 TOP OUTSTANDING
+    // ============================
+    const topOutstandingRaw = await Loan.findAll({
+      attributes: [
+        "employee_id",
+        [fn("SUM", col("remaining_amount")), "total"],
+      ],
+
+      group: ["employee_id", "Employee.id"],
+
+      order: [[literal("total"), "DESC"]],
+
+      limit: 5,
+
+      include: [
+        {
+          model: Employee,
+          as: "Employee",
+          attributes: ["name"],
+        },
+      ],
+    });
+
+    const topOutstanding = topOutstandingRaw.map((item) => ({
+      employee: item.Employee?.name || "-",
+
+      total: Number(item.dataValues.total) || 0,
+    }));
+
+    return {
+      summary: {
+        totalOutstanding: Number(totalOutstandingRaw) || 0,
+
+        totalDisbursed: Number(totalDisbursedRaw) || 0,
+
+        pendingFinalApproval,
+
+        badLoans,
+
+        cashBalance,
+
+        cashIn: totalIn,
+
+        cashOut: totalOut,
+      },
+
+      finalApprovals,
+
+      topOutstanding,
+    };
+  } catch (err) {
+    console.error("OWNER DASHBOARD ERROR:", err);
+
     throw err;
   }
 };
 
 module.exports = {
   getDashboard,
+  getManagerDashboard,
+  getOwnerDashboard,
 };
