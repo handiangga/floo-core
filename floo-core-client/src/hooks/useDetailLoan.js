@@ -33,21 +33,33 @@ export default function useDetailLoan() {
   const [proofFile, setProofFile] = useState(null);
 
   // ======================================
-  // FETCH DETAIL
+  // FETCH LOAN
   // ======================================
   const fetchLoan = async () => {
     try {
       setLoading(true);
 
+      // ======================================
       // LOAN
+      // ======================================
       const loanRes = await api.get(`/loans/${id}`);
+
+      console.log("Loan Full :", loanRes.data.data);
 
       setLoan(loanRes.data.data);
 
+      // ======================================
       // TRANSACTIONS
+      // ======================================
       const trxRes = await api.get(`/transactions?loan_id=${id}`);
 
-      setTransactions(trxRes.data.data.rows || []);
+      console.log("TRANSACTIONS :", trxRes.data);
+
+      // 🔥 FLEXIBLE RESPONSE
+      const trxData =
+        trxRes?.data?.data?.rows || trxRes?.data?.data || trxRes?.data || [];
+
+      setTransactions(Array.isArray(trxData) ? trxData : []);
     } catch (err) {
       console.error(err);
 
@@ -105,7 +117,7 @@ export default function useDetailLoan() {
 
       formData.append("loan_id", loan.id);
 
-      formData.append("amount", Number(amount));
+      formData.append("amount", Number(String(amount).replace(/\D/g, "")));
 
       formData.append("note", note || "");
 
@@ -207,9 +219,6 @@ export default function useDetailLoan() {
   // ======================================
   // RETURN
   // ======================================
-  // ======================================
-  // RETURN
-  // ======================================
   return {
     // DATA
     loan,
@@ -233,11 +242,12 @@ export default function useDetailLoan() {
     proofFile,
     setProofFile,
 
-    // 🔥 PREVIEW
+    // PREVIEW
     preview: proofFile ? URL.createObjectURL(proofFile) : null,
+
     setPreview: () => {},
 
-    // 🔥 DISBURSE
+    // DISBURSE
     disburseProof: proofFile,
     setDisburseProof: setProofFile,
 
@@ -250,8 +260,8 @@ export default function useDetailLoan() {
     isOngoing,
     isPaid,
 
-    // 🔥 NEW
     isDisbursed: isOngoing,
+
     isRejected: status === "rejected_manager" || status === "rejected_owner",
 
     canPay,
@@ -261,7 +271,7 @@ export default function useDetailLoan() {
     handleDisburse,
     refresh,
 
-    // 🔥 DUMMY ACTIONS
+    // DUMMY
     handleApproveManager: () => {},
     handleRejectManager: () => {},
     handleApproveOwner: () => {},
