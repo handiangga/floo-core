@@ -1,108 +1,136 @@
-import LoanDocumentCard from "./LoanDocumentCard";
+import Swal from "sweetalert2";
 
-export default function LoanDocumentSection({ loan }) {
-  console.log("LOAN DOCUMENT =>", loan);
+const colorMap = {
+  violet: {
+    bg: "bg-violet-50",
+    border: "border-violet-200",
+    title: "text-violet-700",
+    button: "bg-violet-600 hover:bg-violet-700 text-white",
+    outline: "border border-violet-300 text-violet-700 hover:bg-violet-100",
+  },
 
-  if (!loan) return null;
+  green: {
+    bg: "bg-green-50",
+    border: "border-green-200",
+    title: "text-green-700",
+    button: "bg-green-600 hover:bg-green-700 text-white",
+    outline: "border border-green-300 text-green-700 hover:bg-green-100",
+  },
+
+  cyan: {
+    bg: "bg-cyan-50",
+    border: "border-cyan-200",
+    title: "text-cyan-700",
+    button: "bg-cyan-600 hover:bg-cyan-700 text-white",
+    outline: "border border-cyan-300 text-cyan-700 hover:bg-cyan-100",
+  },
+
+  emerald: {
+    bg: "bg-emerald-50",
+    border: "border-emerald-200",
+    title: "text-emerald-700",
+    button: "bg-emerald-600 hover:bg-emerald-700 text-white",
+    outline: "border border-emerald-300 text-emerald-700 hover:bg-emerald-100",
+  },
+};
+
+export default function LoanDocumentCard({
+  title,
+  icon,
+  url,
+  color = "violet",
+  isImage = false,
+  viewLabel = "Lihat",
+}) {
+  if (!url) return null;
+
+  const theme = colorMap[color] || colorMap.violet;
+
+  const handleView = () => {
+    if (isImage) {
+      Swal.fire({
+        imageUrl: url,
+        imageAlt: title,
+        showConfirmButton: false,
+        showCloseButton: true,
+        width: 700,
+      });
+
+      return;
+    }
+
+    Swal.fire({
+      title,
+      html: `
+        <iframe
+          src="${url}"
+          width="100%"
+          height="600px"
+          style="border:none;border-radius:12px;"
+        ></iframe>
+      `,
+      width: 900,
+      showConfirmButton: false,
+      showCloseButton: true,
+    });
+  };
 
   return (
-    <div className="space-y-6">
-      {/* =====================================
-          INFO ALERT
-      ===================================== */}
-      <div
-        className={`
-          border
-          rounded-[28px]
-          p-6
-          shadow-sm
-          backdrop-blur-sm
-          ${
-            loan?.status === "paid"
-              ? "bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200 text-emerald-700"
-              : "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 text-green-700"
-          }
-        `}
-      >
-        <div className="flex items-start gap-4">
-          {/* ICON */}
-          <div
-            className={`
-              w-12
-              h-12
-              rounded-2xl
-              flex
-              items-center
-              justify-center
-              text-2xl
-              shadow-sm
-              ${loan?.status === "paid" ? "bg-emerald-100" : "bg-green-100"}
-            `}
-          >
-            {loan?.status === "paid" ? "🏆" : "💰"}
-          </div>
+    <div
+      className={`
+        ${theme.bg}
+        ${theme.border}
+        border
+        rounded-[28px]
+        p-6
+        shadow-sm
+      `}
+    >
+      {/* HEADER */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="text-2xl">{icon}</div>
 
-          {/* CONTENT */}
-          <div className="flex-1">
-            <h3 className="font-bold text-lg">
-              {loan?.status === "paid" ? "Loan Telah Lunas" : "Dokumen Loan"}
-            </h3>
+        <div>
+          <h3 className={`${theme.title} font-bold text-lg`}>{title}</h3>
 
-            <p className="text-sm mt-1 leading-relaxed opacity-90">
-              Seluruh dokumen loan tersedia di bawah ini.
-            </p>
-          </div>
+          <p className="text-gray-500 text-sm">
+            Dokumen tersedia untuk dilihat dan diunduh.
+          </p>
         </div>
       </div>
 
-      {/* =====================================
-          DOCUMENTS
-      ===================================== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* DOKUMEN TTD */}
-        {loan?.signed_contract_url && (
-          <LoanDocumentCard
-            title="Dokumen TTD"
-            icon="✍️"
-            url={loan.signed_contract_url}
-            color="violet"
-            viewLabel="Lihat TTD"
-          />
-        )}
+      {/* BUTTONS */}
+      <div className="flex gap-3 flex-wrap">
+        <button
+          onClick={handleView}
+          className={`
+            ${theme.button}
+            px-5
+            py-3
+            rounded-2xl
+            font-medium
+            transition
+          `}
+        >
+          {viewLabel}
+        </button>
 
-        {/* BUKTI PENCAIRAN */}
-        {loan?.disbursement_proof && (
-          <LoanDocumentCard
-            title="Bukti Pencairan"
-            icon="💸"
-            url={loan.disbursement_proof}
-            color="green"
-            isImage
-            viewLabel="Lihat Bukti"
-          />
-        )}
-
-        {/* KWITANSI */}
-        {loan?.disbursement_receipt_pdf && (
-          <LoanDocumentCard
-            title="Kwitansi Pencairan"
-            icon="🧾"
-            url={loan.disbursement_receipt_pdf}
-            color="cyan"
-            viewLabel="Lihat PDF"
-          />
-        )}
-
-        {/* SURAT PELUNASAN */}
-        {loan?.settlement_letter && (
-          <LoanDocumentCard
-            title="Surat Pelunasan"
-            icon="🏆"
-            url={loan.settlement_letter}
-            color="emerald"
-            viewLabel="Lihat PDF"
-          />
-        )}
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className={`
+            ${theme.outline}
+            px-5
+            py-3
+            rounded-2xl
+            font-medium
+            transition
+            bg-white
+          `}
+        >
+          Download
+        </a>
       </div>
     </div>
   );
