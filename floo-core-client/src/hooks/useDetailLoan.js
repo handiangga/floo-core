@@ -207,10 +207,16 @@ export default function useDetailLoan() {
   // ======================================
   // RETURN
   // ======================================
+  // ======================================
+  // RETURN
+  // ======================================
   return {
     // DATA
     loan,
     transactions,
+
+    // USER
+    user: JSON.parse(localStorage.getItem("user")),
 
     // STATE
     loading,
@@ -227,6 +233,14 @@ export default function useDetailLoan() {
     proofFile,
     setProofFile,
 
+    // 🔥 PREVIEW
+    preview: proofFile ? URL.createObjectURL(proofFile) : null,
+    setPreview: () => {},
+
+    // 🔥 DISBURSE
+    disburseProof: proofFile,
+    setDisburseProof: setProofFile,
+
     // STATUS
     status,
 
@@ -235,12 +249,25 @@ export default function useDetailLoan() {
     isSigned,
     isOngoing,
     isPaid,
+
+    // 🔥 NEW
+    isDisbursed: isOngoing,
+    isRejected: status === "rejected_manager" || status === "rejected_owner",
+
     canPay,
 
     // ACTION
     handlePayment,
     handleDisburse,
     refresh,
+
+    // 🔥 DUMMY ACTIONS
+    handleApproveManager: () => {},
+    handleRejectManager: () => {},
+    handleApproveOwner: () => {},
+    handleRejectOwner: () => {},
+    handleDownloadPdf: () => {},
+    handleUploadSignature: () => {},
 
     // NAV
     navigate,
