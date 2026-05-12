@@ -14,6 +14,11 @@ export default function LoanPayment({
   setPreview,
 }) {
   // =====================================
+  // 🔥 FIX INSTALLMENT
+  // =====================================
+  const installmentAmount = Math.min(loan.installment, loan.remaining_amount);
+
+  // =====================================
   // FILE CHANGE
   // =====================================
   const handleFileChange = (e) => {
@@ -83,8 +88,11 @@ export default function LoanPayment({
           QUICK BUTTON
       ===================================== */}
       <div className="flex flex-wrap gap-3">
+        {/* CICIL */}
         <button
-          onClick={() => setPayAmount(loan.installment.toLocaleString("id-ID"))}
+          onClick={() =>
+            setPayAmount(installmentAmount.toLocaleString("id-ID"))
+          }
           className="
             px-5
             py-3
@@ -97,9 +105,10 @@ export default function LoanPayment({
             text-sm
           "
         >
-          💳 Cicil 1x ({formatRupiah(loan.installment)})
+          💳 Cicil 1x ({formatRupiah(installmentAmount)})
         </button>
 
+        {/* LUNAS */}
         <button
           onClick={() =>
             setPayAmount(loan.remaining_amount.toLocaleString("id-ID"))

@@ -44,7 +44,7 @@ export default function useDetailLoan() {
       // ======================================
       const loanRes = await api.get(`/loans/${id}`);
 
-      console.log("Loan Full :", loanRes.data.data);
+      //   console.log("Loan Full :", loanRes.data.data);
 
       setLoan(loanRes.data.data);
 
@@ -53,7 +53,7 @@ export default function useDetailLoan() {
       // ======================================
       const trxRes = await api.get(`/transactions?loan_id=${id}`);
 
-      console.log("TRANSACTIONS :", trxRes.data);
+      //   console.log("TRANSACTIONS :", trxRes.data);
 
       // 🔥 FIX RESPONSE
       const trxData =
