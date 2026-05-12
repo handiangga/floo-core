@@ -4,6 +4,8 @@ import Layout from "../../components/layout/LayoutTest";
 
 import api from "../../api/api";
 
+import Swal from "sweetalert2";
+
 import {
   Wallet,
   Landmark,
@@ -47,6 +49,79 @@ export default function OwnerDashboard() {
   useEffect(() => {
     fetchDashboard();
   }, []);
+
+  // =====================================================
+  // 🔥 APPROVE OWNER
+  // =====================================================
+  const handleApproveOwner = async (id) => {
+    try {
+      const confirm = await Swal.fire({
+        title: "Approve final pinjaman?",
+        text: "Pengajuan akan diteruskan ke proses tanda tangan",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Approve",
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      await api.post(`/loans/${id}/approve-owner`);
+
+      Swal.fire(
+        "Berhasil",
+        "Pengajuan diteruskan ke tahap tanda tangan",
+        "success",
+      );
+
+      fetchDashboard();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Gagal approve",
+        "error",
+      );
+    }
+  };
+
+  // =====================================================
+  // 🔥 REJECT OWNER
+  // =====================================================
+  const handleRejectOwner = async (id) => {
+    try {
+      const { value: reason } = await Swal.fire({
+        title: "Reject pinjaman",
+        input: "textarea",
+        inputLabel: "Alasan reject owner",
+        inputPlaceholder: "Masukkan alasan reject...",
+        inputAttributes: {
+          "aria-label": "Alasan reject",
+        },
+        showCancelButton: true,
+        confirmButtonText: "Reject",
+        confirmButtonColor: "#ef4444",
+      });
+
+      if (!reason) return;
+
+      await api.post(`/loans/${id}/reject-owner`, {
+        reason,
+      });
+
+      Swal.fire("Berhasil", "Pengajuan ditolak owner", "success");
+
+      fetchDashboard();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Gagal reject",
+        "error",
+      );
+    }
+  };
 
   const s = data?.summary || {};
 
@@ -212,11 +287,17 @@ export default function OwnerDashboard() {
 
                     <td className="py-4">
                       <div className="flex justify-end gap-2">
-                        <button className="px-3 py-1 rounded bg-green-500 hover:bg-green-600 text-white text-xs">
+                        <button
+                          onClick={() => handleApproveOwner(item.id)}
+                          className="px-3 py-1 rounded bg-green-500 hover:bg-green-600 text-white text-xs"
+                        >
                           Approve
                         </button>
 
-                        <button className="px-3 py-1 rounded bg-red-500 hover:bg-red-600 text-white text-xs">
+                        <button
+                          onClick={() => handleRejectOwner(item.id)}
+                          className="px-3 py-1 rounded bg-red-500 hover:bg-red-600 text-white text-xs"
+                        >
                           Reject
                         </button>
                       </div>
