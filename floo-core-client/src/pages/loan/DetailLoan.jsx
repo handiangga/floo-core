@@ -164,10 +164,7 @@ export default function DetailLoan() {
         {/* ======================================
             DOCUMENTS
         ====================================== */}
-        {(isWaitingSignature ||
-          isSigned ||
-          isDisbursed ||
-          loan?.status === "paid") && <LoanDocumentSection loan={loan} />}
+        {loan && <LoanDocumentSection loan={loan} />}
 
         {/* ======================================
             PAYMENT
