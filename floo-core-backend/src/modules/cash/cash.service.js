@@ -51,23 +51,23 @@ const getCashBalance = async () => {
 const getCashflowChart = async () => {
   const result = await Cashflow.findAll({
     attributes: [
-      [fn("DATE", col("createdAt")), "date"],
+      [literal('DATE("createdAt")'), "date"],
 
       "type",
 
       [fn("COALESCE", fn("SUM", col("amount")), 0), "total"],
     ],
 
-    group: [literal("DATE(createdAt)"), "type"],
+    group: [literal('DATE("createdAt")'), "type"],
 
-    order: [[literal("DATE(createdAt)"), "ASC"]],
+    order: [[literal('DATE("createdAt")'), "ASC"]],
 
     raw: true,
   });
 
-  // =================================================
+  // ===============================================
   // 🔥 GROUPING
-  // =================================================
+  // ===============================================
   const grouped = {};
 
   for (const item of result) {
@@ -118,7 +118,7 @@ const getRecentActivities = async (limit = 10) => {
 
     description: item.description || "-",
 
-    createdAt: item.createdAt,
+    date: item.createdAt,
   }));
 };
 

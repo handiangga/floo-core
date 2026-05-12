@@ -134,16 +134,16 @@ const getDashboard = async (params = {}) => {
     // ============================
     const cashflowRaw = await Cashflow.findAll({
       attributes: [
-        [fn("DATE", col("createdAt")), "date"],
+        [literal('DATE("createdAt")'), "date"],
 
         "type",
 
         [fn("SUM", col("amount")), "total"],
       ],
 
-      group: [fn("DATE", col("createdAt")), "type"],
+      group: [literal('DATE("createdAt")'), "type"],
 
-      order: [[literal("date"), "ASC"]],
+      order: [[literal('DATE("createdAt")'), "ASC"]],
 
       raw: true,
     });
@@ -163,9 +163,13 @@ const getDashboard = async (params = {}) => {
         };
       }
 
-      if (c.type === "in") grouped[date].masuk += total;
+      if (c.type === "in") {
+        grouped[date].masuk += total;
+      }
 
-      if (c.type === "out") grouped[date].keluar += total;
+      if (c.type === "out") {
+        grouped[date].keluar += total;
+      }
     }
 
     let cashflow = Object.values(grouped);
@@ -194,9 +198,13 @@ const getDashboard = async (params = {}) => {
     for (const c of cashRaw) {
       const total = Number(c.total) || 0;
 
-      if (c.type === "in") totalIn += total;
+      if (c.type === "in") {
+        totalIn += total;
+      }
 
-      if (c.type === "out") totalOut += total;
+      if (c.type === "out") {
+        totalOut += total;
+      }
     }
 
     const cashBalance = totalIn - totalOut;
@@ -212,14 +220,19 @@ const getDashboard = async (params = {}) => {
       include: [
         {
           model: Loan,
+
           as: "Loan",
+
           required: false,
 
           include: [
             {
               model: Employee,
+
               as: "Employee",
+
               attributes: ["name"],
+
               required: false,
             },
           ],
@@ -232,9 +245,13 @@ const getDashboard = async (params = {}) => {
 
       let label = "-";
 
-      if (item.source === "loan") label = "Pinjaman Baru";
+      if (item.source === "loan") {
+        label = "Pinjaman Baru";
+      }
 
-      if (item.source === "payment") label = "Pembayaran";
+      if (item.source === "payment") {
+        label = "Pembayaran";
+      }
 
       return {
         id: item.id,
@@ -274,7 +291,9 @@ const getDashboard = async (params = {}) => {
       include: [
         {
           model: Employee,
+
           as: "Employee",
+
           attributes: ["name"],
         },
       ],
@@ -364,7 +383,9 @@ const getManagerDashboard = async () => {
       include: [
         {
           model: Employee,
+
           as: "Employee",
+
           attributes: ["id", "name"],
         },
       ],
@@ -406,7 +427,9 @@ const getManagerDashboard = async () => {
       include: [
         {
           model: Employee,
+
           as: "Employee",
+
           attributes: ["name"],
         },
       ],
@@ -453,9 +476,6 @@ const getManagerDashboard = async () => {
 // ============================
 const getOwnerDashboard = async () => {
   try {
-    // ============================
-    // 🔥 KPI
-    // ============================
     const [
       totalOutstandingRaw,
       totalDisbursedRaw,
@@ -488,7 +508,7 @@ const getOwnerDashboard = async () => {
     ]);
 
     // ============================
-    // 🔥 CASH DATA
+    // 🔥 CASH
     // ============================
     const balance = await cashService.getCashBalance();
 
@@ -507,7 +527,9 @@ const getOwnerDashboard = async () => {
       include: [
         {
           model: Employee,
+
           as: "Employee",
+
           attributes: ["name"],
         },
       ],
@@ -554,7 +576,9 @@ const getOwnerDashboard = async () => {
       include: [
         {
           model: Employee,
+
           as: "Employee",
+
           attributes: ["name"],
         },
       ],
