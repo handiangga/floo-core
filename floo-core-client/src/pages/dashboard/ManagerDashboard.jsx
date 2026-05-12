@@ -84,17 +84,25 @@ export default function ManagerDashboard() {
   // =====================================================
   const handleReject = async (id) => {
     try {
-      const confirm = await Swal.fire({
-        title: "Reject pinjaman?",
-        text: "Pengajuan akan ditolak",
-        icon: "warning",
+      const { value: reason } = await Swal.fire({
+        title: "Reject pinjaman",
+        input: "textarea",
+        inputLabel: "Alasan reject",
+        inputPlaceholder: "Masukkan alasan reject...",
+        inputAttributes: {
+          "aria-label": "Alasan reject",
+        },
         showCancelButton: true,
         confirmButtonText: "Reject",
+        confirmButtonColor: "#ef4444",
       });
 
-      if (!confirm.isConfirmed) return;
+      // batal
+      if (!reason) return;
 
-      await api.post(`/loans/${id}/reject-manager`);
+      await api.post(`/loans/${id}/reject-manager`, {
+        reason,
+      });
 
       Swal.fire("Berhasil", "Pengajuan ditolak", "success");
 
