@@ -13,10 +13,15 @@ export default function Login() {
   });
 
   const [loading, setLoading] = useState(false);
+
   const [showPassword, setShowPassword] = useState(false);
 
+  // =====================================================
+  // 🔥 LOGIN
+  // =====================================================
   const handleLogin = async (e) => {
     e.preventDefault();
+
     setLoading(true);
 
     try {
@@ -24,9 +29,17 @@ export default function Login() {
 
       const data = res.data.data;
 
-      // 🔥 SIMPAN TOKEN + USER
+      // =================================================
+      // 🔥 SAVE TOKEN + USER
+      // =================================================
       setToken(data.token);
+
       setUser(data.user);
+
+      // =================================================
+      // 🔥 ROLE
+      // =================================================
+      const role = data.user?.role;
 
       Swal.fire({
         icon: "success",
@@ -36,7 +49,28 @@ export default function Login() {
         showConfirmButton: false,
       });
 
-      navigate("/dashboard");
+      // =================================================
+      // 🔥 ROLE REDIRECT
+      // =================================================
+      setTimeout(() => {
+        if (role === "admin") {
+          navigate("/dashboard");
+          return;
+        }
+
+        if (role === "manager") {
+          navigate("/dashboard/manager");
+          return;
+        }
+
+        if (role === "owner") {
+          navigate("/dashboard/owner");
+          return;
+        }
+
+        // fallback
+        navigate("/");
+      }, 1500);
     } catch (err) {
       Swal.fire({
         icon: "error",
@@ -51,20 +85,33 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 p-4">
       <div className="w-full max-w-md bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/20">
+        {/* ============================================= */}
+        {/* 🔥 HEADER */}
+        {/* ============================================= */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white">Flo Core</h1>
+
           <p className="text-white/70 text-sm mt-2">Login ke dashboard kamu</p>
         </div>
 
+        {/* ============================================= */}
+        {/* 🔥 FORM */}
+        {/* ============================================= */}
         <form onSubmit={handleLogin} className="space-y-5">
           {/* EMAIL */}
           <div>
             <label className="text-white/80 text-sm">Email</label>
+
             <input
               type="email"
               placeholder="admin@floo.com"
               className="w-full mt-1 px-4 py-3 rounded-lg bg-white/20 text-white placeholder-white/50 outline-none focus:ring-2 focus:ring-white/40"
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  email: e.target.value,
+                })
+              }
               required
             />
           </div>
@@ -72,14 +119,21 @@ export default function Login() {
           {/* PASSWORD */}
           <div>
             <label className="text-white/80 text-sm">Password</label>
+
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 className="w-full mt-1 px-4 py-3 rounded-lg bg-white/20 text-white placeholder-white/50 outline-none focus:ring-2 focus:ring-white/40"
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    password: e.target.value,
+                  })
+                }
                 required
               />
+
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
@@ -100,6 +154,9 @@ export default function Login() {
           </button>
         </form>
 
+        {/* ============================================= */}
+        {/* 🔥 FOOTER */}
+        {/* ============================================= */}
         <p className="text-center text-white/60 text-sm mt-6">
           © {new Date().getFullYear()} Flo Core
         </p>
