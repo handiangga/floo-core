@@ -4,6 +4,8 @@ import Layout from "../../components/layout/LayoutTest";
 
 import api from "../../api/api";
 
+import Swal from "sweetalert2";
+
 import {
   ClipboardCheck,
   CheckCircle,
@@ -22,7 +24,7 @@ export default function ManagerDashboard() {
   const [error, setError] = useState("");
 
   // =====================================================
-  // 🔥 FETCH
+  // 🔥 FETCH DASHBOARD
   // =====================================================
   const fetchDashboard = async () => {
     try {
@@ -46,12 +48,77 @@ export default function ManagerDashboard() {
     fetchDashboard();
   }, []);
 
+  // =====================================================
+  // 🔥 APPROVE MANAGER
+  // =====================================================
+  const handleApprove = async (id) => {
+    try {
+      const confirm = await Swal.fire({
+        title: "Approve pinjaman?",
+        text: "Pengajuan akan diteruskan ke owner",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Approve",
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      await api.post(`/loans/${id}/approve-manager`);
+
+      Swal.fire("Berhasil", "Pengajuan diteruskan ke owner", "success");
+
+      fetchDashboard();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Gagal approve",
+        "error",
+      );
+    }
+  };
+
+  // =====================================================
+  // 🔥 REJECT MANAGER
+  // =====================================================
+  const handleReject = async (id) => {
+    try {
+      const confirm = await Swal.fire({
+        title: "Reject pinjaman?",
+        text: "Pengajuan akan ditolak",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Reject",
+      });
+
+      if (!confirm.isConfirmed) return;
+
+      await api.post(`/loans/${id}/reject-manager`);
+
+      Swal.fire("Berhasil", "Pengajuan ditolak", "success");
+
+      fetchDashboard();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire(
+        "Error",
+        err?.response?.data?.message || "Gagal reject",
+        "error",
+      );
+    }
+  };
+
+  // =====================================================
+  // 🔥 HELPER
+  // =====================================================
   const s = data?.summary || {};
 
   const safe = (v) => Number(v) || 0;
 
   // =====================================================
-  // 🔥 KPI
+  // 🔥 KPI CARDS
   // =====================================================
   const financeCards = [
     {
@@ -59,6 +126,7 @@ export default function ManagerDashboard() {
       value: safe(s.pendingApproval),
       icon: ClipboardCheck,
       color: "from-yellow-400 to-yellow-500",
+      isMoney: false,
     },
 
     {
@@ -66,6 +134,7 @@ export default function ManagerDashboard() {
       value: safe(s.approvedLoans),
       icon: CheckCircle,
       color: "from-green-400 to-green-500",
+      isMoney: false,
     },
 
     {
@@ -73,6 +142,7 @@ export default function ManagerDashboard() {
       value: safe(s.rejectedLoans),
       icon: XCircle,
       color: "from-red-400 to-red-500",
+      isMoney: false,
     },
 
     {
@@ -80,6 +150,7 @@ export default function ManagerDashboard() {
       value: safe(s.activeLoans),
       icon: Wallet,
       color: "from-blue-400 to-blue-500",
+      isMoney: false,
     },
   ];
 
@@ -202,11 +273,17 @@ export default function ManagerDashboard() {
 
                     <td className="py-4">
                       <div className="flex justify-end gap-2">
-                        <button className="px-3 py-1 rounded bg-green-500 hover:bg-green-600 text-white text-xs">
+                        <button
+                          onClick={() => handleApprove(item.id)}
+                          className="px-3 py-1 rounded bg-green-500 hover:bg-green-600 text-white text-xs"
+                        >
                           Approve
                         </button>
 
-                        <button className="px-3 py-1 rounded bg-red-500 hover:bg-red-600 text-white text-xs">
+                        <button
+                          onClick={() => handleReject(item.id)}
+                          className="px-3 py-1 rounded bg-red-500 hover:bg-red-600 text-white text-xs"
+                        >
                           Reject
                         </button>
                       </div>
@@ -226,7 +303,7 @@ export default function ManagerDashboard() {
       </div>
 
       {/* ================================================= */}
-      {/* 🔥 HIGH RISK */}
+      {/* 🔥 HIGH RISK LOAN */}
       {/* ================================================= */}
       <div className="mt-8 bg-white rounded-2xl shadow p-6">
         <div className="flex items-center gap-2 mb-5">
