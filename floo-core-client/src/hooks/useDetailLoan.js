@@ -44,7 +44,7 @@ export default function useDetailLoan() {
       // ======================================
       const loanRes = await api.get(`/loans/${id}`);
 
-      //   console.log("Loan Full :", loanRes.data.data);
+      console.log("Loan Full :", loanRes.data.data);
 
       setLoan(loanRes.data.data);
 
@@ -53,9 +53,11 @@ export default function useDetailLoan() {
       // ======================================
       const trxRes = await api.get(`/transactions?loan_id=${id}`);
 
-      //   console.log("TRANSACTIONS :", trxRes.data);
+      console.log("TRANSACTIONS :", trxRes.data);
 
-      // 🔥 FIX RESPONSE
+      // ======================================
+      // FIX RESPONSE
+      // ======================================
       const trxData =
         trxRes?.data?.data?.data ||
         trxRes?.data?.data?.rows ||
@@ -117,11 +119,13 @@ export default function useDetailLoan() {
 
       setPaymentLoading(true);
 
+      const numericAmount = Number(String(amount).replace(/\D/g, ""));
+
       const formData = new FormData();
 
       formData.append("loan_id", loan.id);
 
-      formData.append("amount", Number(String(amount).replace(/\D/g, "")));
+      formData.append("amount", numericAmount);
 
       formData.append("note", note || "");
 
@@ -153,6 +157,212 @@ export default function useDetailLoan() {
         icon: "error",
         title: "Error",
         text: err?.response?.data?.message || "Payment failed",
+      });
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // ======================================
+  // APPROVE MANAGER
+  // ======================================
+  const handleApproveManager = async () => {
+    try {
+      setPaymentLoading(true);
+
+      await api.put(`/loans/${loan.id}/approve-manager`);
+
+      Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: "Loan berhasil diapprove manager",
+      });
+
+      fetchLoan();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err?.response?.data?.message || "Approve manager failed",
+      });
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // ======================================
+  // REJECT MANAGER
+  // ======================================
+  const handleRejectManager = async () => {
+    try {
+      const result = await Swal.fire({
+        title: "Reject Loan?",
+        input: "text",
+        inputLabel: "Alasan reject",
+        inputPlaceholder: "Masukkan alasan reject...",
+        showCancelButton: true,
+        confirmButtonText: "Reject",
+      });
+
+      if (!result.isConfirmed) return;
+
+      setPaymentLoading(true);
+
+      await api.put(`/loans/${loan.id}/reject-manager`, {
+        reason: result.value,
+      });
+
+      Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: "Loan berhasil direject manager",
+      });
+
+      fetchLoan();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err?.response?.data?.message || "Reject manager failed",
+      });
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // ======================================
+  // APPROVE OWNER
+  // ======================================
+  const handleApproveOwner = async () => {
+    try {
+      setPaymentLoading(true);
+
+      await api.put(`/loans/${loan.id}/approve-owner`);
+
+      Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: "Loan berhasil diapprove owner",
+      });
+
+      fetchLoan();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err?.response?.data?.message || "Approve owner failed",
+      });
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // ======================================
+  // REJECT OWNER
+  // ======================================
+  const handleRejectOwner = async () => {
+    try {
+      const result = await Swal.fire({
+        title: "Reject Loan?",
+        input: "text",
+        inputLabel: "Alasan reject",
+        inputPlaceholder: "Masukkan alasan reject...",
+        showCancelButton: true,
+        confirmButtonText: "Reject",
+      });
+
+      if (!result.isConfirmed) return;
+
+      setPaymentLoading(true);
+
+      await api.put(`/loans/${loan.id}/reject-owner`, {
+        reason: result.value,
+      });
+
+      Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: "Loan berhasil direject owner",
+      });
+
+      fetchLoan();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err?.response?.data?.message || "Reject owner failed",
+      });
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // ======================================
+  // DOWNLOAD PDF
+  // ======================================
+  const handleDownloadPdf = async () => {
+    try {
+      window.open(`${api.defaults.baseURL}/loans/${loan.id}/pdf`, "_blank");
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Gagal download PDF",
+      });
+    }
+  };
+
+  // ======================================
+  // UPLOAD SIGNATURE
+  // ======================================
+  const handleUploadSignature = async () => {
+    try {
+      const { value: file } = await Swal.fire({
+        title: "Upload Tanda Tangan",
+        input: "file",
+        inputAttributes: {
+          accept: "image/*,.pdf",
+        },
+      });
+
+      if (!file) return;
+
+      setPaymentLoading(true);
+
+      const formData = new FormData();
+
+      formData.append("signed_contract", file);
+
+      await api.post(`/loans/${loan.id}/upload-signed`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      Swal.fire({
+        icon: "success",
+        title: "Berhasil",
+        text: "TTD berhasil diupload",
+      });
+
+      fetchLoan();
+    } catch (err) {
+      console.error(err);
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err?.response?.data?.message || "Upload TTD failed",
       });
     } finally {
       setPaymentLoading(false);
@@ -273,15 +483,17 @@ export default function useDetailLoan() {
     // ACTION
     handlePayment,
     handleDisburse,
-    refresh,
 
-    // DUMMY
-    handleApproveManager: () => {},
-    handleRejectManager: () => {},
-    handleApproveOwner: () => {},
-    handleRejectOwner: () => {},
-    handleDownloadPdf: () => {},
-    handleUploadSignature: () => {},
+    handleApproveManager,
+    handleRejectManager,
+
+    handleApproveOwner,
+    handleRejectOwner,
+
+    handleDownloadPdf,
+    handleUploadSignature,
+
+    refresh,
 
     // NAV
     navigate,

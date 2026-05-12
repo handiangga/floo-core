@@ -37,8 +37,9 @@ export default function LoanActions({
       },
     });
 
-    if (result.isConfirmed) {
-      callback();
+    // 🔥 FIX
+    if (result.isConfirmed && typeof callback === "function") {
+      await callback();
     }
   };
 
@@ -47,6 +48,7 @@ export default function LoanActions({
   // =====================================
   const ActionButton = ({ onClick, className, children, disabled }) => (
     <button
+      type="button"
       disabled={disabled}
       onClick={onClick}
       className={`
@@ -97,13 +99,13 @@ export default function LoanActions({
                 )
               }
               className="
-                bg-gradient-to-r
-                from-amber-500
-                to-yellow-500
-                hover:from-amber-600
-                hover:to-yellow-600
-                text-white
-              "
+                  bg-gradient-to-r
+                  from-amber-500
+                  to-yellow-500
+                  hover:from-amber-600
+                  hover:to-yellow-600
+                  text-white
+                "
             >
               ✅ Approve Manager
             </ActionButton>
@@ -118,13 +120,13 @@ export default function LoanActions({
                 )
               }
               className="
-                bg-gradient-to-r
-                from-red-500
-                to-rose-500
-                hover:from-red-600
-                hover:to-rose-600
-                text-white
-              "
+                  bg-gradient-to-r
+                  from-red-500
+                  to-rose-500
+                  hover:from-red-600
+                  hover:to-rose-600
+                  text-white
+                "
             >
               ❌ Reject
             </ActionButton>
@@ -158,13 +160,13 @@ export default function LoanActions({
                 )
               }
               className="
-                bg-gradient-to-r
-                from-orange-500
-                to-amber-500
-                hover:from-orange-600
-                hover:to-amber-600
-                text-white
-              "
+                  bg-gradient-to-r
+                  from-orange-500
+                  to-amber-500
+                  hover:from-orange-600
+                  hover:to-amber-600
+                  text-white
+                "
             >
               📝 Approve Owner
             </ActionButton>
@@ -179,13 +181,13 @@ export default function LoanActions({
                 )
               }
               className="
-                bg-gradient-to-r
-                from-red-500
-                to-rose-500
-                hover:from-red-600
-                hover:to-rose-600
-                text-white
-              "
+                  bg-gradient-to-r
+                  from-red-500
+                  to-rose-500
+                  hover:from-red-600
+                  hover:to-rose-600
+                  text-white
+                "
             >
               ❌ Reject
             </ActionButton>
@@ -284,7 +286,9 @@ export default function LoanActions({
       {/* =====================================
           DISBURSED
       ===================================== */}
-      {loan.status === "disbursed" && (
+      {(loan.status === "disbursed" ||
+        loan.status === "ongoing" ||
+        loan.status === "paid") && (
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-[32px] p-6 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-green-100 flex items-center justify-center text-2xl">
