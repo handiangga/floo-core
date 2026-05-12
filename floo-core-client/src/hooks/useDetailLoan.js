@@ -55,9 +55,13 @@ export default function useDetailLoan() {
 
       console.log("TRANSACTIONS :", trxRes.data);
 
-      // 🔥 FLEXIBLE RESPONSE
+      // 🔥 FIX RESPONSE
       const trxData =
-        trxRes?.data?.data?.rows || trxRes?.data?.data || trxRes?.data || [];
+        trxRes?.data?.data?.data ||
+        trxRes?.data?.data?.rows ||
+        trxRes?.data?.data ||
+        trxRes?.data ||
+        [];
 
       setTransactions(Array.isArray(trxData) ? trxData : []);
     } catch (err) {
