@@ -12,11 +12,16 @@ import {
   XCircle,
   Wallet,
   AlertTriangle,
+  Eye,
 } from "lucide-react";
 
 import FinanceCard from "../../components/ui/FinanceCard";
 
+import { useNavigate } from "react-router-dom";
+
 export default function ManagerDashboard() {
+  const navigate = useNavigate();
+
   const [data, setData] = useState(null);
 
   const [loading, setLoading] = useState(true);
@@ -59,6 +64,7 @@ export default function ManagerDashboard() {
         icon: "question",
         showCancelButton: true,
         confirmButtonText: "Approve",
+        confirmButtonColor: "#22c55e",
       });
 
       if (!confirm.isConfirmed) return;
@@ -86,18 +92,24 @@ export default function ManagerDashboard() {
     try {
       const { value: reason } = await Swal.fire({
         title: "Reject pinjaman",
+
         input: "textarea",
+
         inputLabel: "Alasan reject",
+
         inputPlaceholder: "Masukkan alasan reject...",
+
         inputAttributes: {
           "aria-label": "Alasan reject",
         },
+
         showCancelButton: true,
+
         confirmButtonText: "Reject",
+
         confirmButtonColor: "#ef4444",
       });
 
-      // batal
       if (!reason) return;
 
       await api.post(`/loans/${id}/reject-manager`, {
@@ -131,33 +143,49 @@ export default function ManagerDashboard() {
   const financeCards = [
     {
       title: "Pending Approval",
+
       value: safe(s.pendingApproval),
+
       icon: ClipboardCheck,
+
       color: "from-yellow-400 to-yellow-500",
+
       isMoney: false,
     },
 
     {
       title: "Approved",
+
       value: safe(s.approvedLoans),
+
       icon: CheckCircle,
+
       color: "from-green-400 to-green-500",
+
       isMoney: false,
     },
 
     {
       title: "Rejected",
+
       value: safe(s.rejectedLoans),
+
       icon: XCircle,
+
       color: "from-red-400 to-red-500",
+
       isMoney: false,
     },
 
     {
       title: "Active Loan",
+
       value: safe(s.activeLoans),
+
       icon: Wallet,
+
       color: "from-blue-400 to-blue-500",
+
       isMoney: false,
     },
   ];
@@ -243,15 +271,21 @@ export default function ManagerDashboard() {
               Pengajuan menunggu approval manager
             </p>
           </div>
+
+          <div className="text-sm text-gray-400">
+            {data?.pendingApprovals?.length} pengajuan
+          </div>
         </div>
 
-        <div className="overflow-auto">
+        <div className="overflow-auto max-h-[420px]">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 bg-white z-10">
               <tr className="border-b">
                 <th className="text-left py-3">Nama</th>
 
                 <th className="text-left py-3">Nominal</th>
+
+                <th className="text-left py-3">Remaining</th>
 
                 <th className="text-left py-3">Tenor</th>
 
@@ -264,23 +298,40 @@ export default function ManagerDashboard() {
             <tbody>
               {data?.pendingApprovals?.length > 0 ? (
                 data.pendingApprovals.map((item) => (
-                  <tr key={item.id} className="border-b hover:bg-gray-50">
-                    <td className="py-4">{item.employee}</td>
+                  <tr
+                    key={item.id}
+                    className="border-b hover:bg-gray-50 transition"
+                  >
+                    <td className="py-4 font-medium">{item.employee}</td>
 
                     <td className="py-4">
                       Rp {safe(item.amount).toLocaleString("id-ID")}
                     </td>
 
+                    <td className="py-4 text-red-500 font-medium">
+                      Rp {safe(item.remaining).toLocaleString("id-ID")}
+                    </td>
+
                     <td className="py-4">{item.tenor}</td>
 
                     <td className="py-4">
-                      <span className="px-3 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">
+                      <span className="px-3 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700 font-medium">
                         Pending
                       </span>
                     </td>
 
                     <td className="py-4">
                       <div className="flex justify-end gap-2">
+                        {/* DETAIL */}
+                        <button
+                          onClick={() => navigate(`/loans/${item.id}`)}
+                          className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs flex items-center gap-1"
+                        >
+                          <Eye className="w-3 h-3" />
+                          Detail
+                        </button>
+
+                        {/* APPROVE */}
                         <button
                           onClick={() => handleApprove(item.id)}
                           className="px-3 py-1 rounded bg-green-500 hover:bg-green-600 text-white text-xs"
@@ -288,6 +339,7 @@ export default function ManagerDashboard() {
                           Approve
                         </button>
 
+                        {/* REJECT */}
                         <button
                           onClick={() => handleReject(item.id)}
                           className="px-3 py-1 rounded bg-red-500 hover:bg-red-600 text-white text-xs"
@@ -300,7 +352,7 @@ export default function ManagerDashboard() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-gray-400">
+                  <td colSpan={6} className="py-10 text-center text-gray-400">
                     Tidak ada pending approval
                   </td>
                 </tr>
@@ -317,30 +369,55 @@ export default function ManagerDashboard() {
         <div className="flex items-center gap-2 mb-5">
           <AlertTriangle className="w-5 h-5 text-red-500" />
 
-          <h2 className="font-bold text-lg">High Risk Loan</h2>
+          <div>
+            <h2 className="font-bold text-lg">High Risk Loan</h2>
+
+            <p className="text-sm text-gray-500">Pinjaman overdue & berisiko</p>
+          </div>
         </div>
 
         <div className="space-y-3">
           {data?.highRiskLoans?.length > 0 ? (
-            data.highRiskLoans.map((loan) => (
-              <div
-                key={loan.id}
-                className="flex items-center justify-between border rounded-xl p-4"
-              >
-                <div>
-                  <p className="font-medium">{loan.employee}</p>
+            data.highRiskLoans.map((loan) => {
+              const due = new Date(loan.dueDate);
 
-                  <p className="text-sm text-gray-500">
-                    Jatuh tempo:{" "}
-                    {new Date(loan.dueDate).toLocaleDateString("id-ID")}
-                  </p>
-                </div>
+              const today = new Date();
 
-                <div className="text-red-500 font-bold">
-                  Rp {safe(loan.remaining).toLocaleString("id-ID")}
+              const diff = Math.floor((today - due) / (1000 * 60 * 60 * 24));
+
+              return (
+                <div
+                  key={loan.id}
+                  className="flex items-center justify-between border rounded-xl p-4 hover:bg-red-50 transition"
+                >
+                  <div>
+                    <p className="font-medium">{loan.employee}</p>
+
+                    <p className="text-sm text-gray-500">
+                      Jatuh tempo:{" "}
+                      {new Date(loan.dueDate).toLocaleDateString("id-ID")}
+                    </p>
+
+                    <p className="text-xs text-red-500 mt-1">
+                      Terlambat {diff} hari
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="text-red-500 font-bold">
+                      Rp {safe(loan.remaining).toLocaleString("id-ID")}
+                    </div>
+
+                    <button
+                      onClick={() => navigate(`/loans/${loan.id}`)}
+                      className="text-xs text-blue-500 hover:underline mt-1"
+                    >
+                      Lihat Detail
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="text-sm text-gray-400">
               Tidak ada high risk loan
