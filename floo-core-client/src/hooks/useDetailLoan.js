@@ -100,24 +100,14 @@ export default function useDetailLoan() {
   // ======================================
   // PAYMENT
   // ======================================
-  const handlePayment = async () => {
+
+  const handlePayment = async (type = "installment") => {
     try {
-      if (!amount) {
-        return Swal.fire("Error", "Nominal wajib diisi", "error");
-      }
-
       if (!proofFile) {
-        return Swal.fire("Error", "Upload bukti pembayaran", "error");
-      }
-
-      const cleanAmount = Number(String(amount).replace(/\D/g, ""));
-
-      if (!cleanAmount || cleanAmount <= 0) {
-        return Swal.fire("Error", "Nominal tidak valid", "error");
-      }
-
-      if (cleanAmount > loan.remaining_amount) {
-        return Swal.fire("Error", "Melebihi sisa pinjaman", "error");
+        return Swal.fire({
+          icon: "warning",
+          title: "Upload bukti pembayaran dulu",
+        });
       }
 
       setPaymentLoading(true);
@@ -126,35 +116,35 @@ export default function useDetailLoan() {
 
       formData.append("loan_id", loan.id);
 
-      formData.append("amount", cleanAmount);
+      formData.append("amount", amount);
+
+      formData.append("type", type);
 
       formData.append("proof", proofFile);
 
-      await api.post("/transactions/payment", formData, {
+      // 🔥 FIX ENDPOINT
+      await api.post("/transactions", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
 
-      Swal.fire("Berhasil", "Pembayaran berhasil", "success");
+      Swal.fire({
+        icon: "success",
+        title: "Pembayaran berhasil",
+        timer: 1500,
+        showConfirmButton: false,
+      });
 
-      // RESET
-      setAmount("");
-
-      setProofFile(null);
-
-      setPreview(null);
-
-      // REFRESH
-      fetchLoan();
+      window.location.reload();
     } catch (err) {
       console.error(err);
 
-      Swal.fire(
-        "Error",
-        err?.response?.data?.message || "Pembayaran gagal",
-        "error",
-      );
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: err?.response?.data?.message || "Pembayaran gagal",
+      });
     } finally {
       setPaymentLoading(false);
     }
