@@ -20,7 +20,11 @@ app.use(
 // 🔥 CORS (BIAR FRONTEND BISA AKSES)
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://floo-core.vercel.app"],
+    origin: [
+      "http://localhost:5173",
+      "https://floo-core.vercel.app",
+      "https://pinjaman.floofashionn.com",
+    ],
     credentials: true,
   }),
 );
